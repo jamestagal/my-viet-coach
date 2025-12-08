@@ -1,13 +1,16 @@
 {
-  "name": "full-stack-on-cloudlare-starter-repo",
+  "name": "viet-coach",
   "version": "1.0.0",
-  "description": "",
+  "description": "Vietnamese Language Coach - Real-time voice coaching app",
   "scripts": {
-    "build-package": "pnpm --filter @repo/data-ops run build",
-    "dev-frontend": "pnpm --filter user-application run dev",
-    "dev-data-service": "pnpm --filter data-service run dev"
+    "dev": "pnpm run --parallel dev:api dev:web",
+    "dev:api": "pnpm --filter api run dev",
+    "dev:web": "pnpm --filter web run dev",
+    "dev:voice": "pnpm --filter voice run dev",
+    "build": "pnpm --filter @repo/data-ops run build",
+    "build:web": "pnpm --filter web run build"
   },
-  "keywords": [],
+  "keywords": ["vietnamese", "language-learning", "voice-coach"],
   "author": "",
   "license": "ISC",
   "devDependencies": {

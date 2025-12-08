@@ -15,6 +15,10 @@
       "types": "./dist/db/database.d.ts",
       "default": "./dist/db/database.js"
     },
+    "./schema": {
+      "types": "./dist/db/schema.d.ts",
+      "default": "./dist/db/schema.js"
+    },
     "./queries/*": {
       "types": "./dist/queries/*.d.ts",
       "default": "./dist/queries/*.js"
