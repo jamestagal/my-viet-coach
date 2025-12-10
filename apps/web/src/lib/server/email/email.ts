@@ -1,7 +1,7 @@
 import { Resend } from 'resend';
 import { SMTPClient } from 'emailjs';
 import { dev } from '$app/environment';
-import { RESEND_API_KEY, LOCAL_EMAIL, FROM_EMAIL } from '$env/static/private';
+import { env } from '$env/dynamic/private';
 import { PUBLIC_PROJECT_NAME } from '$env/static/public';
 
 // Local dev: Mailpit on localhost:1025
@@ -12,8 +12,14 @@ const localClient = new SMTPClient({
 });
 
 // Production: Resend SDK (native Cloudflare Workers support)
-// Only initialize if API key is available (not in dev mode with LOCAL_EMAIL)
-const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
+// Initialize lazily when needed
+let resend: Resend | null = null;
+function getResend() {
+	if (!resend && env.RESEND_API_KEY) {
+		resend = new Resend(env.RESEND_API_KEY);
+	}
+	return resend;
+}
 
 interface EmailOptions {
 	to: string;
@@ -37,9 +43,14 @@ async function sendLocalEmail(options: EmailOptions) {
 }
 
 async function sendResendEmail(options: EmailOptions) {
-	const fromEmail = FROM_EMAIL || `noreply@${PUBLIC_PROJECT_NAME.toLowerCase().replace(/\s/g, '')}.com`;
+	const fromEmail = env.FROM_EMAIL || `noreply@${PUBLIC_PROJECT_NAME.toLowerCase().replace(/\s/g, '')}.com`;
+	const resendClient = getResend();
 
-	const { data, error } = await resend.emails.send({
+	if (!resendClient) {
+		throw new Error('Resend API key not configured');
+	}
+
+	const { data, error } = await resendClient.emails.send({
 		from: `${PUBLIC_PROJECT_NAME} <${fromEmail}>`,
 		to: options.to,
 		subject: options.subject,
@@ -61,7 +72,7 @@ export async function sendEmail(options: EmailOptions) {
 		return;
 	}
 
-	if (dev || LOCAL_EMAIL === 'true') {
+	if (dev || env.LOCAL_EMAIL === 'true') {
 		return sendLocalEmail(options);
 	}
 

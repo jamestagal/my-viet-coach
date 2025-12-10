@@ -1,5 +1,5 @@
 <script>
-    import { toast } from '@components/Toast.svelte';
+    import { toast } from '$lib/components/ui/toast/Toast.svelte';
 
 
 	let email = $state('');
@@ -64,7 +64,7 @@
 				<label for="email" class="text-secondary-3">Your Email</label>
 				<div class="input-field">
 					<input
-						type="email"s
+						type="email"
 						id="email"
 						bind:value={email}
 						placeholder="you@example.com"

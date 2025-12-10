@@ -1,69 +1,71 @@
 <script>
-    import { PUBLIC_APP_NAME } from '$env/static/public';
-    import ToggleButton from '$lib/client/components/ToggleButton.svelte';
-    import ArrowRight from '@icons/arrow-right.svelte'
-    import Check from '@icons/check.svelte'
-    import ProductCard from '@components/ProductCard.svelte';
-
-    let { data } = $props();
-    let products = $derived(data.products || []);
-
-    let selectedInterval = $state('month');
-
-    // Check if any product has a yearly fixed price option
-    let hasYearlyPlans = $derived(products.some(product => 
-        product.prices.some(price => price.amountType === 'fixed' && price.interval === 'year')
-    ));
-
-    // Derived list of products to display
-    let filteredProducts = $derived(products.filter(product => {
-        const hasFixedOneTime = product.prices.some(p => p.amountType === 'fixed' && p.interval === 'one_time');
-        const hasFixedSelectedInterval = product.prices.some(p => p.amountType === 'fixed' && p.interval === selectedInterval);
-        const hasOnlyMetered = !product.prices.some(p => p.amountType === 'fixed');
-        const hasMeteredSelectedInterval = product.prices.some(p => p.amountType === 'metered_unit' && p.interval === selectedInterval);
-
-        return hasFixedOneTime || hasFixedSelectedInterval || (hasOnlyMetered && hasMeteredSelectedInterval);
-    }));
-
-
+    import { PUBLIC_PROJECT_NAME } from '$env/static/public';
+    import { Check } from 'lucide-svelte';
 </script>
 
 <svelte:head>
-    <title>Pricing | {PUBLIC_APP_NAME}</title>
+    <title>Pricing | {PUBLIC_PROJECT_NAME}</title>
 </svelte:head>
 
-<section class="flex flex-col w-full h-full mx-auto px-4 gap-12 mt-20 items-center justify-center">
-
-    <header class="heading">
-            <h1>PRICING</h1>
-            <h2>Choose Your Plan</h2>
-            <h3>All plans include 14-day money-back guarantee.</h3>
+<section class="flex flex-col w-full min-h-screen mx-auto px-4 py-20 gap-12 items-center justify-center">
+    <header class="text-center">
+        <h1 class="text-sm uppercase tracking-widest text-muted-foreground mb-2">Pricing</h1>
+        <h2 class="text-3xl font-bold mb-4">Choose Your Plan</h2>
+        <p class="text-muted-foreground">Start learning Vietnamese today</p>
     </header>
 
+    <div class="grid md:grid-cols-2 gap-6 max-w-3xl w-full">
+        <!-- Free Plan -->
+        <div class="bg-card border border-border rounded-xl p-6 flex flex-col">
+            <h3 class="text-xl font-semibold mb-2">Free</h3>
+            <p class="text-3xl font-bold mb-4">$0<span class="text-sm text-muted-foreground">/month</span></p>
+            <ul class="flex-1 space-y-3 mb-6">
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    5 practice sessions per day
+                </li>
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    Basic pronunciation feedback
+                </li>
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    Essential vocabulary lessons
+                </li>
+            </ul>
+            <a href="/login" class="btn bg-muted hover:bg-muted/80 text-center py-2 rounded-lg font-medium">
+                Get Started
+            </a>
+        </div>
 
-
-    {#if hasYearlyPlans}
-    <div class="card card-ring flex flex-row gap-2 p-1 mb-6 text-sm w-full max-w-md">
-        <button type="button" class="button w-1/2 p-2 justify-center {selectedInterval === 'month' ? 'action shadow-lg' : ''}" onclick={() => selectedInterval = 'month'}>
-            Monthly
-        </button>
-        <button type="button" class="button w-1/2 p-2 gap-2 justify-center {selectedInterval === 'year' ? 'action shadow-lg' : ''}" onclick={() => selectedInterval = 'year'}>
-            Yearly <span class="badge bg-primary-accent text-main text-xxs">2 Months Free</span>
-        </button>
-    </div>
-    {/if}
-
-    <div class="flex flex-row flex-wrap w-full gap-6 items-stretch justify-center">
-        
-        {#if filteredProducts.length === 0}
-             <p class="text-fade text-center w-full">No plans available currently.</p>
-        {:else}
-            {#each filteredProducts as product (product.productId)}
-             
-
-                <ProductCard product={product} />
-
-            {/each}
-        {/if}
+        <!-- Pro Plan -->
+        <div class="bg-card border-2 border-primary rounded-xl p-6 flex flex-col relative">
+            <span class="absolute -top-3 left-1/2 -translate-x-1/2 bg-primary text-primary-foreground text-xs px-3 py-1 rounded-full">
+                Popular
+            </span>
+            <h3 class="text-xl font-semibold mb-2">Pro</h3>
+            <p class="text-3xl font-bold mb-4">$9<span class="text-sm text-muted-foreground">/month</span></p>
+            <ul class="flex-1 space-y-3 mb-6">
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    Unlimited practice sessions
+                </li>
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    Advanced AI pronunciation coach
+                </li>
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    Full lesson library access
+                </li>
+                <li class="flex items-center gap-2 text-sm">
+                    <Check size={16} class="text-primary" />
+                    Progress tracking & analytics
+                </li>
+            </ul>
+            <a href="/login" class="btn bg-primary hover:bg-primary/90 text-primary-foreground text-center py-2 rounded-lg font-medium">
+                Start Free Trial
+            </a>
+        </div>
     </div>
 </section>
