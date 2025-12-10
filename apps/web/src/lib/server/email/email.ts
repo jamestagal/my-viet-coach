@@ -1,95 +1,132 @@
+import { Resend } from 'resend';
 import { SMTPClient } from 'emailjs';
-import { LOCAL_EMAIL, POSTMARK_SERVER_TOKEN } from '$env/static/private';
-import postmark from 'postmark';
 import { dev } from '$app/environment';
-import { inline } from '@css-inline/css-inline';
-import layout from './layout.html?raw';
-import login from './login-email.html?raw';
+import { RESEND_API_KEY, LOCAL_EMAIL, FROM_EMAIL } from '$env/static/private';
+import { PUBLIC_PROJECT_NAME } from '$env/static/public';
 
+// Local dev: Mailpit on localhost:1025
 const localClient = new SMTPClient({
 	host: 'localhost',
 	port: 1025,
 	ssl: false
 });
 
-type LayoutEmailVariables = {
-	product_url: string;
-	product_name: string;
-};
+// Production: Resend SDK (native Cloudflare Workers support)
+// Only initialize if API key is available (not in dev mode with LOCAL_EMAIL)
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
-type LoginEmailVariables = LayoutEmailVariables & {
-	action_url: string;
-};
-
-// NOTE: I included this initial authentication email template so that you can get started right away.
-// It was created with the Postmark template editor. It is better to create your emails there and than send emails with
-// postmarkClient.sendEmailWithTemlate()
-
-export const loginEmailHtmlTemplate = (variables: LoginEmailVariables) => {
-	return inline(
-		layout
-			.replaceAll('{{{ @content }}}', login)
-			.replaceAll('{{ product_url }}', variables.product_url)
-			.replaceAll('{{ product_name }}', variables.product_name)
-			.replaceAll('{{ action_url }}', variables.action_url)
-	);
-};
-
-const sendTestEmail = async (options: {
-	from: string;
+interface EmailOptions {
 	to: string;
 	subject: string;
 	html: string;
-}) => {
+}
+
+async function sendLocalEmail(options: EmailOptions) {
 	try {
 		await localClient.sendAsync({
 			text: options.subject,
-			from: options.from,
+			from: `${PUBLIC_PROJECT_NAME} <noreply@localhost>`,
 			to: options.to,
 			subject: options.subject,
 			attachment: [{ data: options.html, alternative: true }]
 		});
-		console.log(`Test email sent to ${options.to}`);
+		console.log(`[Email] Sent to ${options.to} via Mailpit`);
 	} catch (e) {
-		console.error(e);
+		console.error('[Email] Failed to send via Mailpit:', e);
 	}
-};
+}
 
-export const sendEmail = async (options: {
-	to: string;
-	from: string;
-	subject: string;
-	htmlBody: string;
-	textBody?: string;
-}) => {
+async function sendResendEmail(options: EmailOptions) {
+	const fromEmail = FROM_EMAIL || `noreply@${PUBLIC_PROJECT_NAME.toLowerCase().replace(/\s/g, '')}.com`;
+
+	const { data, error } = await resend.emails.send({
+		from: `${PUBLIC_PROJECT_NAME} <${fromEmail}>`,
+		to: options.to,
+		subject: options.subject,
+		html: options.html
+	});
+
+	if (error) {
+		console.error('[Email] Resend error:', error);
+		throw new Error(error.message);
+	}
+
+	console.log(`[Email] Sent to ${options.to} via Resend`, data);
+	return data;
+}
+
+export async function sendEmail(options: EmailOptions) {
 	if (process.env.NODE_ENV === 'test') {
+		console.log('[Email] Test mode - skipping email');
 		return;
 	}
 
-	if (LOCAL_EMAIL === 'true') {
-		return await sendTestEmail({
-			from: options.from,
-			to: options.to,
-			subject: options.subject,
-			html: options.htmlBody
-		});
+	if (dev || LOCAL_EMAIL === 'true') {
+		return sendLocalEmail(options);
 	}
 
-	if (!dev) {
-		try {
-			const postmarkClient = new postmark.ServerClient(POSTMARK_SERVER_TOKEN);
-			const result = await postmarkClient.sendEmail({
-				From: options.from,
-				To: options.to,
-				Subject: options.subject,
-				HtmlBody: options.htmlBody,
-				TextBody: options.textBody
-			});
-			console.log(result);
-			return result;
-		} catch (error) {
-			console.error('Failed to send email:', error);
-			throw error;
-		}
+	return sendResendEmail(options);
+}
+
+// Email templates for Better-Auth
+export const send = {
+	otpVerification: async ({ toEmail, otp }: { toEmail: string; otp: string }) => {
+		await sendEmail({
+			to: toEmail,
+			subject: `Your ${PUBLIC_PROJECT_NAME} verification code`,
+			html: `
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				</head>
+				<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+					<div style="background: white; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+						<h2 style="margin: 0 0 16px; color: #111827; font-size: 24px;">Your verification code</h2>
+						<p style="margin: 0 0 24px; color: #6b7280; font-size: 14px;">
+							Enter this code to sign in to ${PUBLIC_PROJECT_NAME}:
+						</p>
+						<div style="font-size: 32px; font-weight: bold; letter-spacing: 0.15em; background: #f3f4f6; padding: 16px 24px; border-radius: 8px; text-align: center; color: #111827;">
+							${otp}
+						</div>
+						<p style="margin: 24px 0 0; color: #9ca3af; font-size: 12px;">
+							This code expires in 5 minutes. If you didn't request this code, you can safely ignore this email.
+						</p>
+					</div>
+				</body>
+				</html>
+			`
+		});
+	},
+
+	emailVerification: async ({ toEmail, url }: { toEmail: string; url: string }) => {
+		await sendEmail({
+			to: toEmail,
+			subject: `Verify your email for ${PUBLIC_PROJECT_NAME}`,
+			html: `
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				</head>
+				<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 400px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+					<div style="background: white; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+						<h2 style="margin: 0 0 16px; color: #111827; font-size: 24px;">Verify your email</h2>
+						<p style="margin: 0 0 24px; color: #6b7280; font-size: 14px;">
+							Click the button below to verify your email address for ${PUBLIC_PROJECT_NAME}:
+						</p>
+						<a href="${url}" style="display: inline-block; background: #111827; color: #ffffff; padding: 12px 24px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+							Verify Email
+						</a>
+						<p style="margin: 24px 0 0; color: #9ca3af; font-size: 12px;">
+							If you didn't create an account, you can safely ignore this email.
+						</p>
+					</div>
+				</body>
+				</html>
+			`
+		});
 	}
 };

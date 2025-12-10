@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Vietnamese Language Coach - Real-time voice coaching app",
   "scripts": {
-    "dev": "pnpm run --parallel dev:api dev:web",
+    "dev": "pnpm --parallel --filter api --filter web run dev",
     "dev:api": "pnpm --filter api run dev",
     "dev:web": "pnpm --filter web run dev",
     "dev:voice": "pnpm --filter voice run dev",
@@ -16,5 +16,12 @@
   "devDependencies": {
     "@types/node": "^22.15.19",
     "typescript": "^5.9.2"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "better-sqlite3",
+      "esbuild",
+      "workerd"
+    ]
   }
 }

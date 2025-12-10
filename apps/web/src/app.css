@@ -202,4 +202,298 @@
 	.bg-jade {
 		background-color: hsl(var(--viet-jade));
 	}
+
+	/* Muted/fade text for admin pages */
+	.text-fade {
+		@apply text-muted-foreground;
+	}
+}
+
+/* Admin-specific styles (BetterKit compatibility) */
+@layer components {
+	/* Basic card class for admin pages */
+	.card {
+		@apply bg-card border border-border rounded-xl;
+	}
+
+	.card-ring {
+		@apply bg-card border border-border ring-4 ring-muted/50 rounded-xl;
+	}
+
+	/* Admin card styles */
+	.admin-card {
+		@apply border border-border rounded-xl bg-card p-5;
+	}
+
+	.admin-card-ring {
+		@apply border border-border ring-4 ring-muted rounded-xl bg-card;
+	}
+
+	/* Admin button styles */
+	.admin-button {
+		@apply flex flex-row cursor-pointer rounded-xl items-center transition-all duration-100 text-nowrap font-medium;
+	}
+
+	.admin-button:hover {
+		@apply transition-all duration-100;
+	}
+
+	.admin-button:active {
+		@apply scale-95 transition-all duration-50 shadow-none;
+	}
+
+	.admin-button.highlight {
+		@apply border border-border transition-all duration-100;
+	}
+
+	.admin-button.action {
+		@apply bg-primary text-primary-foreground;
+	}
+
+	.admin-button.danger {
+		@apply bg-destructive text-destructive-foreground;
+	}
+
+	.admin-button.success {
+		@apply bg-green-600 text-white;
+	}
+
+	.admin-button.menu {
+		@apply hover:bg-muted p-2 gap-2;
+	}
+
+	/* Admin badge styles */
+	.admin-badge {
+		@apply w-fit flex flex-row gap-1 items-center px-2 py-1 text-xs rounded-full;
+	}
+
+	.admin-badge.orange {
+		@apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+	}
+
+	.admin-badge.bg-success {
+		@apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+	}
+
+	.admin-badge.bg-danger {
+		@apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+	}
+
+	.admin-badge.bg-warning {
+		@apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+	}
+
+	/* Admin navigation styles */
+	.admin-nav-links {
+		@apply flex flex-col overflow-y-auto overflow-x-hidden gap-1;
+	}
+
+	.admin-nav-links > a {
+		@apply flex flex-row gap-3 p-3 rounded-xl text-sm font-medium text-foreground/80;
+	}
+
+	.admin-nav-links > a:hover {
+		@apply bg-muted text-foreground;
+	}
+
+	.admin-nav-links > a.active {
+		@apply bg-muted text-foreground font-semibold;
+	}
+
+	.admin-nav-links > a.disabled {
+		@apply opacity-50 pointer-events-none;
+	}
+
+	/* Admin input styles */
+	.admin-input-container {
+		@apply flex flex-col gap-2;
+	}
+
+	.admin-input-container > label {
+		@apply text-sm font-medium;
+	}
+
+	.admin-input-field {
+		@apply flex flex-row overflow-hidden shadow-none min-h-10 bg-muted rounded-xl w-full border border-border;
+	}
+
+	.admin-input-field:focus-within {
+		@apply outline-2 outline-ring outline-offset-2;
+	}
+
+	.admin-input-field > input,
+	.admin-input-field > textarea {
+		all: unset;
+		@apply w-full p-2;
+	}
+
+	/* BetterKit Badge Compatibility */
+	.badge {
+		@apply inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium rounded-full;
+	}
+
+	.badge.orange {
+		@apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+	}
+
+	.badge.bg-success {
+		@apply bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400;
+	}
+
+	.badge.bg-danger {
+		@apply bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400;
+	}
+
+	.badge.bg-warning {
+		@apply bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400;
+	}
+
+	.badge.bg-secondary-2 {
+		@apply bg-muted text-muted-foreground;
+	}
+
+	.badge.bg-primary-3 {
+		@apply bg-muted text-muted-foreground;
+	}
+
+	.badge.bg-primary-accent {
+		@apply bg-primary/10 text-primary;
+	}
+
+	/* BetterKit Button Compatibility */
+	.button {
+		@apply inline-flex items-center justify-center gap-2 rounded-lg font-medium transition-colors cursor-pointer;
+	}
+
+	.button:hover {
+		@apply bg-muted;
+	}
+
+	.button.highlight {
+		@apply border border-border bg-background hover:bg-muted;
+	}
+
+	.button.menu {
+		@apply w-full justify-start px-3 py-2 text-sm hover:bg-muted;
+	}
+
+	.button.danger {
+		@apply bg-destructive text-destructive-foreground hover:bg-destructive/90;
+	}
+
+	/* BetterKit Input Compatibility */
+	.input-container {
+		@apply flex flex-col gap-2;
+	}
+
+	.input-field {
+		@apply flex flex-row overflow-hidden min-h-10 bg-muted rounded-lg w-full border border-border;
+	}
+
+	.input-field:focus-within {
+		@apply ring-2 ring-ring ring-offset-2;
+	}
+
+	.input-field > input,
+	.input-field > textarea {
+		all: unset;
+		@apply w-full px-3 py-2;
+	}
+}
+
+/* BetterKit Color Utilities - Maps BetterKit colors to this project's palette */
+/* NOTE: Using .bk- prefix to avoid conflicts with Tailwind's built-in primary/secondary colors */
+@layer utilities {
+	/* Background colors */
+	.bg-main {
+		@apply bg-background;
+	}
+
+	.bk-bg-primary {
+		@apply bg-muted;
+	}
+
+	.bk-bg-primary-2 {
+		@apply bg-muted/50;
+	}
+
+	.bk-bg-primary-3 {
+		@apply bg-muted;
+	}
+
+	.bg-secondary-2 {
+		@apply bg-secondary;
+	}
+
+	.bg-success {
+		@apply bg-green-500;
+	}
+
+	.bg-danger {
+		@apply bg-red-500;
+	}
+
+	/* Text colors */
+	.text-main {
+		@apply text-background;
+	}
+
+	.bk-text-primary {
+		@apply text-foreground;
+	}
+
+	.text-primary-4 {
+		@apply text-muted-foreground;
+	}
+
+	.bk-text-secondary {
+		@apply text-foreground;
+	}
+
+	.text-secondary-4 {
+		@apply text-muted-foreground;
+	}
+
+	.text-primary-accent {
+		color: hsl(var(--primary));
+	}
+
+	/* Border colors */
+	.bk-border-primary {
+		@apply border-border;
+	}
+
+	.bk-border-primary-2 {
+		@apply border-border/50;
+	}
+
+	.bk-border-primary-3 {
+		@apply border-border;
+	}
+
+	/* Divide colors */
+	.divide-primary-2 > :not([hidden]) ~ :not([hidden]) {
+		border-color: hsl(var(--border) / 0.5);
+	}
+
+	/* Border width utility */
+	.border-3 {
+		border-width: 3px;
+	}
+
+	/* Text size utility */
+	.text-xxs {
+		font-size: 0.625rem;
+		line-height: 0.875rem;
+	}
+
+	/* Border left width utility */
+	.border-l-1 {
+		border-left-width: 1px;
+	}
+
+	/* Hover background */
+	.hover\:bg-primary-1:hover {
+		background-color: hsl(var(--muted) / 0.3);
+	}
 }

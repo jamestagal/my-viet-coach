@@ -8,8 +8,8 @@
 </script>
 
 <img
-	src="/noi-hay.svg"
-	alt="Nói Hay logo"
+	src="/speak-pho-real.svg"
+	alt="Speak Phở Real logo"
 	width={size}
 	height={size}
 	class={className}

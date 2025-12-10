@@ -1,0 +1,28 @@
+name = "noi-hay"
+compatibility_date = "2024-11-12"
+pages_build_output_dir = ".svelte-kit/cloudflare"
+
+# Node.js compatibility
+compatibility_flags = ["nodejs_compat"]
+
+# D1 Database binding
+[[d1_databases]]
+binding = "DB"
+database_name = "noi-hay-db"
+database_id = "1b0a331d-eb7c-4835-96cd-e50f3a7f7a41"
+
+[vars]
+PUBLIC_PROJECT_NAME = "Speak Phở Real"
+PUBLIC_DEFAULT_TITLE = "Speak Phở Real - Learn Vietnamese Through Conversation"
+PUBLIC_DEFAULT_DESCRIPTION = "Practice speaking Vietnamese with an AI tutor that adapts to your level"
+
+# Environment variables that need to be set in Cloudflare dashboard:
+# - OPENAI_API_KEY
+# - GOOGLE_CLIENT_ID
+# - GOOGLE_CLIENT_SECRET
+# - POSTMARK_SERVER_TOKEN
+# - FROM_EMAIL
+# - STRIPE_SECRET_KEY
+# - STRIPE_WEBHOOK_SECRET
+# - PUBLIC_ORIGIN
+# - PUBLIC_POSTHOG_KEY

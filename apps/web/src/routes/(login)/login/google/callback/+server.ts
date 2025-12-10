@@ -36,8 +36,10 @@ export async function GET(event: RequestEvent): Promise<Response> {
 		const idToken = tokens.idToken();
 		const google_user = parseJWT(idToken)!.payload as GoogleUser;
 		let user = await getUserByEmail(google_user.email);
+		let isNewUser = false;
 
 		if (!user) {
+			isNewUser = true;
 			const user_id = generateId(15);
 			user = await createNewUser({
 				id: user_id,
@@ -59,10 +61,12 @@ export async function GET(event: RequestEvent): Promise<Response> {
 			...sessionCookie.attributes
 		});
 
+		// Redirect to dashboard with welcome flag for new users
+		const redirectUrl = isNewUser ? '/dashboard?welcome=true' : '/dashboard';
 		return new Response(null, {
 			status: 302,
 			headers: {
-				Location: '/'
+				Location: redirectUrl
 			}
 		});
 	} catch (e) {

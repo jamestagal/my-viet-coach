@@ -1,15 +1,13 @@
 <script lang="ts">
-	import type { PageData } from './$types';
+	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { ArrowRight, MessageCircle, Sparkles, BookOpen } from 'lucide-svelte';
-
-	let { data }: { data: PageData } = $props();
 </script>
 
 <svelte:head>
-	<title>Viet Coach | Learn Vietnamese Through Conversation</title>
+	<title>{PUBLIC_APP_NAME} | Learn Vietnamese Through Conversation</title>
 </svelte:head>
 
-<div class="min-h-[calc(100vh-3.5rem)] paper-texture">
+<div class="min-h-[calc(100vh-5rem)] paper-texture">
 	<!-- Hero Section -->
 	<section class="relative overflow-hidden">
 		<!-- Decorative elements -->
@@ -36,7 +34,7 @@
 
 				<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
 					<a
-						href="/practice"
+						href="/login"
 						class="inline-flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-lg group"
 					>
 						<span>Bắt đầu học</span>
@@ -128,7 +126,7 @@
 
 				<div class="text-center mt-8">
 					<a
-						href="/practice"
+						href="/login"
 						class="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors font-medium"
 					>
 						<span>Start your conversation</span>
