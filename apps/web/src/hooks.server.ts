@@ -1,16 +1,49 @@
 import { svelteKitHandler } from 'better-auth/svelte-kit';
-import { initDb, initLocalDb } from '$lib/server/database/db';
+import { initDb, initLocalDb, getDb } from '$lib/server/database/db';
 import { getAuth } from '$lib/server/auth';
 import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit';
+import { subscription } from '$lib/server/database/schema';
+import { eq, and, or } from 'drizzle-orm';
 
 export const handle: Handle = async ({ event, resolve }) => {
 	// Initialize database FIRST (before auth)
 	if (dev) {
 		await initLocalDb();
-	} else if (event.platform?.env?.DB) {
-		initDb(event.platform.env.DB);
+	} else {
+		// Production: Get D1 binding from platform.env
+		const platform = event.platform;
+		const env = platform?.env;
+		const d1 = env?.DB;
+
+		console.log('[Hooks] Platform check:', {
+			hasPlatform: !!platform,
+			hasEnv: !!env,
+			hasDB: !!d1,
+			envKeys: env ? Object.keys(env) : [],
+			platformKeys: platform ? Object.keys(platform) : []
+		});
+
+		if (d1) {
+			initDb(d1);
+		} else {
+			console.error('[Hooks] D1 database binding not found!');
+			// Return 500 with clear error rather than crashing
+			return new Response(JSON.stringify({
+				error: 'Database connection unavailable',
+				debug: {
+					hasPlatform: !!platform,
+					hasEnv: !!env,
+					hasDB: !!d1,
+					envKeys: env ? Object.keys(env) : [],
+					platformKeys: platform ? Object.keys(platform) : []
+				}
+			}), {
+				status: 500,
+				headers: { 'Content-Type': 'application/json' }
+			});
+		}
 	}
 
 	// Get auth instance (lazily initialized after database)
@@ -36,19 +69,45 @@ export const handle: Handle = async ({ event, resolve }) => {
 			if (fetchedSession) {
 				event.locals.user = fetchedSession.user;
 				event.locals.session = fetchedSession.session;
+
+				// Load user's active subscription
+				try {
+					const db = getDb();
+					const userSubscription = await db
+						.select()
+						.from(subscription)
+						.where(
+							and(
+								eq(subscription.userId, fetchedSession.user.id),
+								or(
+									eq(subscription.status, 'active'),
+									eq(subscription.status, 'trialing')
+								)
+							)
+						)
+						.limit(1);
+
+					event.locals.subscription = userSubscription[0] || null;
+				} catch (subError) {
+					console.error('[Hooks] Error loading subscription:', subError);
+					event.locals.subscription = null;
+				}
 			} else {
 				event.locals.user = null;
 				event.locals.session = null;
+				event.locals.subscription = null;
 			}
 		} catch (e) {
 			console.error('[Hooks] getSession error:', e);
 			event.locals.user = null;
 			event.locals.session = null;
+			event.locals.subscription = null;
 		}
 	} else {
 		// For auth routes, just set null - auth will handle session internally
 		event.locals.user = null;
 		event.locals.session = null;
+		event.locals.subscription = null;
 	}
 
 	// Private route protection - requires authentication

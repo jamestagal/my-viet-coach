@@ -24,6 +24,22 @@ declare global {
 				createdAt: Date | null;
 				updatedAt: Date | null;
 			} | null;
+			subscription: {
+				id: string;
+				userId: string;
+				productId: string | null;
+				polarSubscriptionId: string;
+				polarProductId: string;
+				polarCustomerId: string | null;
+				status: string;
+				plan: string | null;
+				currentPeriodStart: Date | null;
+				currentPeriodEnd: Date | null;
+				trialEnds: Date | null;
+				cancelAtPeriodEnd: boolean;
+				createdAt: Date | null;
+				updatedAt: Date | null;
+			} | null;
 		}
 		// interface PageData {}
 		// interface PageState {}
