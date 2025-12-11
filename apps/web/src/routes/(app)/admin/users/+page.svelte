@@ -1,8 +1,8 @@
 <script>
     import { onMount } from 'svelte';
     import { authClient } from '$lib/actions/authClient';
-    import { ToolBox } from '@components/toolbox';
-    import { toast } from '@components/toast';
+    import { ToolBox } from '$lib/components/ui/toolbox';
+    import { toast } from '$lib/components/ui/toast';
     import { EllipsisVertical, UserRound, UserRoundCog, ChevronLeft, ChevronRight, Check, X, Users } from 'lucide-svelte';
     import AdminPageHeader from '$lib/components/admin/AdminPageHeader.svelte';
 

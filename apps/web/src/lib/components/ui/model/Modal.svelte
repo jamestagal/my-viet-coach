@@ -1,6 +1,6 @@
 <script>
     import { scale } from 'svelte/transition';
-    import X from '@icons/x.svelte';
+    import { X } from 'lucide-svelte';
   
 
     let {

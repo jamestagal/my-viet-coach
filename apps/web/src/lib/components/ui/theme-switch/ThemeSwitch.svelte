@@ -1,9 +1,6 @@
 <script>
     import { onMount } from 'svelte';
-    import Moon from '@icons/moon.svelte';
-    import Sun from '@icons/sun.svelte'
-    import Palette from '@icons/palette.svelte'
-    import LoaderCircle from '@icons/loader-circle.svelte'
+    import { Moon, Sun, Palette, LoaderCircle } from 'lucide-svelte';
     import { getContext } from 'svelte';
   
     let mounted = $state(false);

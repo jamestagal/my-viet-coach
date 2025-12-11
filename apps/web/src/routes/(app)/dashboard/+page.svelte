@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
-	import { toast } from '@components/toast';
+	import { toast } from '$lib/components/ui/toast';
 	import { authClient } from '$lib/actions/authClient';
 	import { ArrowRight, MessageCircle, Clock, TrendingUp, BookOpen, Mic } from 'lucide-svelte';
 

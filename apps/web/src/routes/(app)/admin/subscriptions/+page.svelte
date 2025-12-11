@@ -1,9 +1,9 @@
 <script>
 	import { onMount } from 'svelte';
 	import { goto } from '$app/navigation';
-	import { toast } from '@components/toast';
+	import { toast } from '$lib/components/ui/toast';
 	import { UserRound, EllipsisVertical, ChevronLeft, ChevronRight, TicketPercent, Gauge, CreditCard } from 'lucide-svelte';
-	import { ToolBox } from '@components/toolbox';
+	import { ToolBox } from '$lib/components/ui/toolbox';
 	import { authClient } from '$lib/actions/authClient';
 	import AdminPageHeader from '$lib/components/admin/AdminPageHeader.svelte';
 

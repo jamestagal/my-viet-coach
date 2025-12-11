@@ -1,16 +1,10 @@
 <script>
-    import { toast } from '@components/Toast.svelte';
-    import Button from '@components/Button.svelte';
-    import Loader from '@icons/loader.svelte';
-    import X from '@icons/x.svelte';
-    import Upload from '@icons/upload.svelte';
-    import ImageCropper from '@components/ImageCropper.svelte';
-    import Modal from '@components/Modal.svelte';
-
-    import Crop from '@icons/crop.svelte';
-    import Trash from '@icons/trash.svelte';
-
-    import { authClient } from '@actions/authClient.js';
+    import { toast } from '$lib/components/ui/toast';
+    import { Button } from '$lib/components/ui/button';
+    import { ImageCropper } from '$lib/components/ui/image-cropper';
+    import { Modal } from '$lib/components/ui/model';
+    import { Loader, X, Upload, Crop, Trash } from 'lucide-svelte';
+    import { authClient } from '$lib/actions/authClient.js';
 
     const session = authClient.useSession();
 
@@ -57,7 +51,7 @@
             selectedFiles.forEach((file, i) => {
                 formData.append('images', file);
             });
-            
+
             formData.append(`cropData`, JSON.stringify(cropData));
 
             const response = await fetch('/api/private/images', { method: 'POST', body: formData });
@@ -81,13 +75,13 @@
 
     let showCropper = $state(false);
     let selectedIndex = $state(0);
-    
+
     function openCropper(index) {
         selectedIndex = index;
         showCropper = true;
     }
 
-    function handleCrop(data) {  
+    function handleCrop(data) {
         // Update crop data
         const existingCropIndex = cropData.findIndex(crop => crop.index === selectedIndex);
         const newCropData = {
@@ -97,20 +91,20 @@
             width: Math.round(data.selection.width),
             height: Math.round(data.selection.height)
         };
-        
+
         if (existingCropIndex >= 0) {
             cropData[existingCropIndex] = newCropData;
         } else {
             cropData.push(newCropData);
         }
-        
+
         // Store the cropped preview
         croppedPreviews[selectedIndex] = data.dataUrl;
-        
+
         showCropper = false;
     }
-    
-    
+
+
     // Helper to check if image has been cropped
     function isCropped(index) {
         return croppedPreviews[index] !== null;
@@ -118,30 +112,30 @@
 </script>
 
 <div class="flex flex-col gap-4">
-    <label 
+    <label
         for="images"
-        class="relative border-2  {isDragging ? 'border-primary-accent' : 'border-primary-4 border-dashed'} rounded-lg p-8 transition-all duration-200 hover:bg-primary cursor-pointer"
+        class="relative border-2 {isDragging ? 'border-primary' : 'border-border border-dashed'} rounded-lg p-8 transition-all duration-200 hover:bg-muted cursor-pointer"
         ondragover={(e) => { e.preventDefault(); isDragging = true; }}
         ondragleave={(e) => { e.preventDefault(); isDragging = false; }}
         ondrop={handleDrop}
     >
-        <input 
-            type="file" 
-            id="images" 
-            name="images" 
+        <input
+            type="file"
+            id="images"
+            name="images"
             accept="image/*"
             onchange={handleFileSelect}
             disabled={isLoading}
             class="hidden"
         />
-        
+
         <div class="flex flex-col items-center justify-center gap-2 text-center">
-            <div class="p-3 rounded-full bg-primary-1/10">
-                <Upload size={24} class="text-secondary-4" />
+            <div class="p-3 rounded-full bg-muted">
+                <Upload size={24} class="text-muted-foreground" />
             </div>
             <div class="flex flex-col gap-1">
                 <p class="text-lg font-medium">Drop your images here</p>
-                <p class="text-sm text-secondary-4">or click to browse</p>
+                <p class="text-sm text-muted-foreground">or click to browse</p>
             </div>
         </div>
     </label>
@@ -150,23 +144,23 @@
         <div class="flex flex-row gap-4">
             {#each previewUrls as url, index}
                 <div class="flex flex-col gap-2">
-                    <div class="relative w-full max-w-40 aspect-square rounded-lg overflow-hidden bg-primary-1/5">
-                        <img 
-                            src={isCropped(index) ? croppedPreviews[index] : url} 
-                            alt="Preview" 
+                    <div class="relative w-full max-w-40 aspect-square rounded-lg overflow-hidden bg-muted">
+                        <img
+                            src={isCropped(index) ? croppedPreviews[index] : url}
+                            alt="Preview"
                             class="w-full h-full object-cover"
                         />
-                        
+
                         {#if isCropped(index)}
-                            <div class="absolute top-2 left-2 px-2 py-1 bg-success text-main text-xs rounded-full">
+                            <div class="absolute top-2 left-2 px-2 py-1 bg-green-500 text-white text-xs rounded-full">
                                 Edited
                             </div>
                         {/if}
 
-                        
+
                         <button
                             type="button"
-                            class="button shadow-md p-2 danger absolute top-2 right-2"
+                            class="absolute top-2 right-2 p-2 bg-destructive text-destructive-foreground rounded-lg shadow-md hover:bg-destructive/90"
                             onclick={() => removeImage(index)}
                             title="Remove image"
                         >
@@ -176,7 +170,7 @@
 
                     <div class="flex flex-row gap-2">
                         <Button
-                            size="xs"
+                            size="sm"
                             variant="outline"
                             onclick={() => openCropper(index)}
                             title="Adjust image"
@@ -185,13 +179,13 @@
                         </Button>
                     </div>
                 </div>
-                
+
             {/each}
         </div>
 
         <div class="flex justify-end gap-2">
-            <Button 
-                type="button" 
+            <Button
+                type="button"
                 onclick={() => {
                     selectedFiles = [];
                     previewUrls = [];
@@ -202,12 +196,14 @@
             >
                 Reset
             </Button>
-            <Button 
-                type="button" 
-                onclick={uploadImages} 
-                isLoading={isLoading}
-                variant="action"
+            <Button
+                type="button"
+                onclick={uploadImages}
+                disabled={isLoading}
             >
+                {#if isLoading}
+                    <Loader size={16} class="animate-spin mr-2" />
+                {/if}
                 Upload {selectedFiles.length} {selectedFiles.length === 1 ? 'Image' : 'Images'}
             </Button>
         </div>

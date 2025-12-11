@@ -7,7 +7,7 @@
 	import { MenuLink } from '$lib/components/ui/menu-link';
 	import { userLinks } from '$lib/config/userNavigation';
 	import { adminLinks, backToAppLink } from '$lib/config/adminNavigation';
-	import LogoutButton from '$lib/components/login/LogoutButton.svelte';
+	import { UserMenu } from '$lib/components/dynamic';
 	import VietLogo from '$lib/components/icons/VietLogo.svelte';
 
 	let { children, data } = $props();
@@ -62,7 +62,7 @@
 			</a>
 		</div>
 		<div class="topbar-right">
-			<LogoutButton />
+			<UserMenu />
 		</div>
 	</nav>
 

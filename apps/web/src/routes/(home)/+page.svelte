@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { ArrowRight, MessageCircle, Sparkles, BookOpen } from 'lucide-svelte';
+	import { Newsletter } from '$lib/components/dynamic';
 </script>
 
 <svelte:head>
@@ -134,6 +135,19 @@
 					</a>
 				</div>
 			</div>
+		</div>
+	</section>
+
+	<!-- Newsletter Section -->
+	<section class="container mx-auto px-4 py-16">
+		<div class="max-w-md mx-auto text-center">
+			<h2 class="text-2xl md:text-3xl text-foreground mb-4">
+				Stay Updated
+			</h2>
+			<p class="text-muted-foreground mb-6">
+				Get weekly Vietnamese learning tips and updates on new features.
+			</p>
+			<Newsletter saveInBrowser={true} />
 		</div>
 	</section>
 

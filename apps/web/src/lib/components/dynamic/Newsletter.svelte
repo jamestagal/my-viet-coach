@@ -1,6 +1,6 @@
 <script>
     import { onMount } from 'svelte';
-    import { toast } from '@components/Toast.svelte';
+    import { toast } from '$lib/components/ui/toast';
 
     let { saveInBrowser = false } = $props();
 

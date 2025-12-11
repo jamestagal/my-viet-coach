@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { authClient } from '$lib/actions/authClient';
-	import { Chart } from '@components/chart';
+	import { Chart } from '$lib/components/ui/chart';
 	import { MessageSquare, Reply, CheckCircle2, Users, Package, MessageCircle, CreditCard } from 'lucide-svelte';
 
 	const session = authClient.useSession();

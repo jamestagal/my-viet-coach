@@ -1,11 +1,11 @@
 <script>
-    import { page } from '$app/stores';
+    import { page } from '$app/state';
     import { onMount } from 'svelte';
     import { authClient } from '$lib/actions/authClient';
-    import { toast } from '@components/toast';
+    import { toast } from '$lib/components/ui/toast';
     import { goto, invalidate } from '$app/navigation';
-    import { ToolBox } from '@components/toolbox';
-    import { Modal } from '@components/model';
+    import { ToolBox } from '$lib/components/ui/toolbox';
+    import { Modal } from '$lib/components/ui/model';
     import { ChevronLeft, UserRound, LogOut, Ban, CircleCheck, UserCog, List, Monitor, Smartphone, Globe, Tablet, TriangleAlert, CreditCard, EllipsisVertical } from 'lucide-svelte';
     // Import UA Parser correctly and dayjs
     import * as UAParserModule from 'ua-parser-js';
@@ -31,7 +31,7 @@
     });
     let deleteUserModal = $state(false);
 
-    let userId = $derived($page.params?.id);
+    let userId = $derived(page.params?.id);
 
     // Format date helper with dayjs
     function formatDate(dateString) {

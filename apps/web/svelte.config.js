@@ -10,10 +10,7 @@ const config = {
 	kit: {
 		adapter: adapter({
 			// See https://kit.svelte.dev/docs/adapter-cloudflare for options
-			routes: {
-				include: ['/*'],
-				exclude: ['<all>']
-			}
+			// routes config is auto-generated, no need to specify
 		}),
 		alias: {
 			'@components': 'src/lib/components/ui',

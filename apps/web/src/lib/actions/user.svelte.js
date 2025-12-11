@@ -1,4 +1,4 @@
-import { authClient } from '@actions/authClient';
+import { authClient } from '$lib/actions/authClient';
 import { get } from 'svelte/store';
 import slugify from 'slugify';
 import validator from 'validator';

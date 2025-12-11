@@ -1,14 +1,14 @@
 <script>
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 </script>
 
 <main class="container grid min-h-full place-items-center px-6 py-24 sm:py-32">
 	<h1 class="text-error text-4xl font-bold text-center">
-		{$page.status}
+		{page.status}
 	</h1>
 	<div>
 		<p class="text-center text-base-content/80 text-lg mt-4">
-			{#if $page.status === 404}
+			{#if page.status === 404}
 				The page you are looking for does not exist.
 			{:else}
 				An error occurred.

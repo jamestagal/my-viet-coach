@@ -3,7 +3,7 @@
 	import posthog from 'posthog-js';
 	import { browser, dev } from '$app/environment';
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { getMeta } from '$lib/meta';
 	import {
 		PUBLIC_DEFAULT_DESCRIPTION,
@@ -22,9 +22,9 @@
 			defaultTitle: PUBLIC_DEFAULT_TITLE,
 			defaultDescription: PUBLIC_DEFAULT_DESCRIPTION,
 			defaultOGImage: '/socialcard.jpeg',
-			routeMeta: $page.data?.meta ?? {},
-			url: $page.url,
-			pageParam: $page.params?.page ?? ''
+			routeMeta: page.data?.meta ?? {},
+			url: page.url,
+			pageParam: page.params?.page ?? ''
 		})
 	);
 </script>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { PUBLIC_PROJECT_NAME } from '$env/static/public';
 
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import { buttonVariants } from './ui/button';
 	import LogoutButton from './login/LogoutButton.svelte';
 	import { BookOpen } from 'lucide-svelte';
@@ -29,7 +29,7 @@
 				</nav>
 			</div>
 			<div class="flex items-center gap-2">
-				{#if $page.data.user}
+				{#if page.data.user}
 					<LogoutButton />
 				{:else}
 					<a href="/login" class={buttonVariants({ variant: 'ghost' })}>Sign in</a>

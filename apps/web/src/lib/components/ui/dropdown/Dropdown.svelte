@@ -1,6 +1,6 @@
 <script>
     import { slide, fly, fade, scale } from 'svelte/transition';
-    import ChevronsUpDown from '@icons/chevrons-up-down.svelte';
+    import { ChevronsUpDown } from 'lucide-svelte';
 
     let { 
         placeholder = 'Select an option', 

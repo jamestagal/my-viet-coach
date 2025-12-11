@@ -1,16 +1,15 @@
 <script>
 	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import { toast } from '@components/Toast.svelte';
-	import Button from '@components/Button.svelte';
-    import Loader from '@icons/loader.svelte';
-
-	import { authClient } from '@actions/authClient';
+	import { page } from '$app/state';
+	import { toast } from '$lib/components/ui/toast';
+	import { Button } from '$lib/components/ui/button';
+	import { Loader } from 'lucide-svelte';
+	import { authClient } from '$lib/actions/authClient';
 
     let { data } = $props();
 
     onMount(() => {
-        if($page.url.searchParams.get('emailChanged') && $page.url.searchParams.get('emailChanged') === 'true'){
+        if(page.url.searchParams.get('emailChanged') && page.url.searchParams.get('emailChanged') === 'true'){
             toast.success('Email confirmed successfully');
         }
     });

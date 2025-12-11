@@ -1,10 +1,10 @@
 <script>
-	import { AdminButton } from '@components/admin-button';
-	import { ToggleButton } from '@components/toggle-button';
-    import { Dropdown } from '@components/dropdown';
-	import { Modal } from '@components/model';
+	import { AdminButton } from '$lib/components/ui/admin-button';
+	import { ToggleButton } from '$lib/components/ui/toggle-button';
+    import { Dropdown } from '$lib/components/ui/dropdown';
+	import { Modal } from '$lib/components/ui/model';
     import { onMount } from 'svelte';
-	import { toast } from '@components/toast';
+	import { toast } from '$lib/components/ui/toast';
 	import { Settings, X, Plus, Check, Package } from 'lucide-svelte';
 	import AdminPageHeader from '$lib/components/admin/AdminPageHeader.svelte';
 

@@ -1,11 +1,8 @@
 <script>
-	import { onMount } from 'svelte';
-	import { page } from '$app/stores';
-	import { toast } from '@components/Toast.svelte';
-	import Button from '@components/Button.svelte';
-    import Loader from '@icons/loader.svelte';
-
-	import { authClient } from '@actions/authClient';
+	import { toast } from '$lib/components/ui/toast';
+	import { Button } from '$lib/components/ui/button';
+	import { Loader } from 'lucide-svelte';
+	import { authClient } from '$lib/actions/authClient';
 
     let { data } = $props();
 
