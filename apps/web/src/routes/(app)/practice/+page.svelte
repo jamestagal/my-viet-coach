@@ -39,12 +39,15 @@
 	let selectedTopic = $state('general');
 	let selectedDifficulty = $state<Difficulty>('intermediate');
 	let selectedMode = $state<PracticeMode>('coach');
-	let userTranscript = $state('');
-	let coachTranscript = $state('');
 	let isCoachSpeaking = $state(false);
 	let isMuted = $state(false);
 	let errorMessage = $state('');
 	let isSwitchingMode = $state(false);
+
+	// Conversation display - shows full history with streaming support
+	let conversationHistory = $state<TranscriptMessage[]>([]);
+	let streamingCoachText = $state(''); // Current streaming response (not yet finalized)
+	let streamingUserText = $state(''); // Current user speech being transcribed
 
 	// Transcript collection for session summary
 	let sessionTranscript = $state<TranscriptMessage[]>([]);
@@ -53,6 +56,9 @@
 	let corrections = $state<CorrectionRecord[]>([]);
 	let isExtractingCorrections = $state(false);
 	let extractionError = $state('');
+
+	// Auto-scroll ref
+	let conversationContainer: HTMLDivElement | null = $state(null);
 
 	// Client instance
 	let client: RealtimeClient | null = null;
@@ -104,12 +110,25 @@
 			: createCoachModeConfig(modeOptions);
 	}
 
+	// Auto-scroll to bottom of conversation
+	function scrollToBottom() {
+		if (conversationContainer) {
+			setTimeout(() => {
+				conversationContainer?.scrollTo({
+					top: conversationContainer.scrollHeight,
+					behavior: 'smooth'
+				});
+			}, 50);
+		}
+	}
+
 	// Connect to voice session
 	async function startSession() {
 		connectionState = 'connecting';
 		errorMessage = '';
-		userTranscript = '';
-		coachTranscript = '';
+		conversationHistory = [];
+		streamingCoachText = '';
+		streamingUserText = '';
 		sessionTranscript = [];
 		sessionId = crypto.randomUUID();
 
@@ -118,32 +137,84 @@
 
 			client = new RealtimeClient({
 				onUserTranscript: (text) => {
-					userTranscript = text;
-					// Add to transcript collection (final transcripts only, when text is complete)
+					// User transcript comes as final text from Whisper
 					if (text.trim()) {
+						// Add to visible conversation history
+						conversationHistory = [...conversationHistory, {
+							role: 'user',
+							text: text.trim(),
+							timestamp: Date.now()
+						}];
+						// Add to session transcript for summary
 						sessionTranscript = [...sessionTranscript, {
 							role: 'user',
 							text: text.trim(),
 							timestamp: Date.now()
 						}];
+						streamingUserText = ''; // Clear any streaming state
+						scrollToBottom();
 					}
 				},
 				onCoachResponse: (text, isFinal) => {
-					coachTranscript = text;
-					// Add to transcript collection when final
-					if (isFinal && text.trim()) {
-						sessionTranscript = [...sessionTranscript, {
-							role: 'coach',
-							text: text.trim(),
-							timestamp: Date.now()
-						}];
+					if (isFinal) {
+						// Final response - add to history and clear streaming
+						// Use the longer of: final text or what we were streaming
+						const finalText = text.length >= streamingCoachText.length ? text : streamingCoachText;
+						if (finalText.trim()) {
+							conversationHistory = [...conversationHistory, {
+								role: 'coach',
+								text: finalText.trim(),
+								timestamp: Date.now()
+							}];
+							sessionTranscript = [...sessionTranscript, {
+								role: 'coach',
+								text: finalText.trim(),
+								timestamp: Date.now()
+							}];
+						}
+						streamingCoachText = '';
+						scrollToBottom();
+					} else {
+						// Streaming delta - update streaming text
+						streamingCoachText = text;
+						scrollToBottom();
 					}
 				},
 				onCoachAudioStart: () => {
+					// If there's leftover streaming text from a previous response that didn't finalize,
+					// save it to history before starting a new response
+					if (streamingCoachText.trim()) {
+						conversationHistory = [...conversationHistory, {
+							role: 'coach',
+							text: streamingCoachText.trim(),
+							timestamp: Date.now()
+						}];
+						sessionTranscript = [...sessionTranscript, {
+							role: 'coach',
+							text: streamingCoachText.trim(),
+							timestamp: Date.now()
+						}];
+					}
 					isCoachSpeaking = true;
+					streamingCoachText = '';
 				},
 				onCoachAudioEnd: () => {
 					isCoachSpeaking = false;
+					// If streaming text wasn't finalized via onCoachResponse, save it now
+					if (streamingCoachText.trim()) {
+						conversationHistory = [...conversationHistory, {
+							role: 'coach',
+							text: streamingCoachText.trim(),
+							timestamp: Date.now()
+						}];
+						sessionTranscript = [...sessionTranscript, {
+							role: 'coach',
+							text: streamingCoachText.trim(),
+							timestamp: Date.now()
+						}];
+						streamingCoachText = '';
+						scrollToBottom();
+					}
 				},
 				onConnectionStateChange: (state) => {
 					if (state === 'connected') {
@@ -234,8 +305,9 @@
 	// Reset session state
 	function resetSession() {
 		connectionState = 'idle';
-		userTranscript = '';
-		coachTranscript = '';
+		conversationHistory = [];
+		streamingCoachText = '';
+		streamingUserText = '';
 		isCoachSpeaking = false;
 		isMuted = false;
 		showSummaryModal = false;
@@ -448,7 +520,7 @@
 
 	{:else}
 		<!-- Active Voice Session -->
-		<div class="flex-1 flex flex-col">
+		<div class="flex-1 flex flex-col min-h-0 overflow-hidden">
 			<!-- Session Header -->
 			<div class="flex items-center justify-between px-4 py-3 border-b border-border/50">
 				<div class="flex items-center gap-3">
@@ -482,60 +554,76 @@
 			</div>
 
 			<!-- Voice Interface -->
-			<div class="flex-1 flex flex-col items-center justify-center px-4 py-8">
-				<!-- Main Voice Orb -->
-				<div class="voice-orb {isCoachSpeaking ? 'speaking' : 'listening'} mb-10">
-					<div class="orb-inner">
+			<div class="flex-1 flex flex-col px-4 py-4 min-h-0">
+				<!-- Voice Status Header -->
+				<div class="flex items-center justify-center gap-4 py-4 flex-shrink-0">
+					<!-- Compact Voice Orb -->
+					<div class="voice-orb-mini {isCoachSpeaking ? 'speaking' : 'listening'}">
+						<div class="orb-inner-mini">
+							{#if isCoachSpeaking}
+								<Volume2 class="w-5 h-5 text-primary-foreground" />
+							{:else}
+								<Mic class="w-5 h-5 text-primary-foreground {isMuted ? 'opacity-30' : ''}" />
+							{/if}
+						</div>
 						{#if isCoachSpeaking}
-							<Volume2 class="w-12 h-12 text-primary-foreground" />
-						{:else}
-							<Mic class="w-12 h-12 text-primary-foreground {isMuted ? 'opacity-30' : ''}" />
+							<div class="orb-ring-mini"></div>
 						{/if}
 					</div>
-					<div class="orb-ring"></div>
-					<div class="orb-ring delay-1"></div>
-					<div class="orb-ring delay-2"></div>
-					{#if isCoachSpeaking}
-						<div class="orb-wave"></div>
-						<div class="orb-wave delay-1"></div>
-					{/if}
+
+					<!-- Status Text -->
+					<div class="text-left">
+						{#if isCoachSpeaking}
+							<p class="text-sm font-medium text-foreground">
+								{selectedMode === 'coach' ? 'Cô Hà đang nói...' : 'Lan đang nói...'}
+							</p>
+							<p class="text-xs text-muted-foreground">
+								{selectedMode === 'coach' ? 'Coach is speaking' : 'Partner is speaking'}
+							</p>
+						{:else if isMuted}
+							<p class="text-sm font-medium text-foreground">Đã tắt mic</p>
+							<p class="text-xs text-muted-foreground">Microphone muted</p>
+						{:else}
+							<p class="text-sm font-medium text-foreground">Đang nghe...</p>
+							<p class="text-xs text-muted-foreground">Listening — speak in Vietnamese</p>
+						{/if}
+					</div>
 				</div>
 
-				<!-- Status Text -->
-				<div class="text-center mb-8">
-					{#if isCoachSpeaking}
-						<p class="text-lg text-foreground mb-1">
-							{selectedMode === 'coach' ? 'Cô Hà đang nói...' : 'Lan đang nói...'}
-						</p>
-						<p class="text-sm text-muted-foreground">
-							{selectedMode === 'coach' ? 'Coach is speaking' : 'Partner is speaking'}
-						</p>
-					{:else if isMuted}
-						<p class="text-lg text-foreground mb-1">Đã tắt mic</p>
-						<p class="text-sm text-muted-foreground">Microphone muted</p>
-					{:else}
-						<p class="text-lg text-foreground mb-1">Đang nghe...</p>
-						<p class="text-sm text-muted-foreground">Listening — speak in Vietnamese</p>
-					{/if}
-				</div>
+				<!-- Conversation History (scrollable) -->
+				<div
+					class="flex-1 overflow-y-auto conversation-scroll"
+					bind:this={conversationContainer}
+				>
+					<div class="w-full max-w-xl mx-auto space-y-3 pb-4">
+						{#if conversationHistory.length === 0 && !streamingCoachText}
+							<div class="text-center py-12 text-muted-foreground">
+								<p class="text-sm">Conversation will appear here...</p>
+								<p class="text-xs mt-1">Start speaking in Vietnamese</p>
+							</div>
+						{/if}
 
-				<!-- Transcript Cards -->
-				<div class="w-full max-w-xl space-y-4">
-					<!-- User Transcript -->
-					{#if userTranscript}
-						<div class="transcript-card user animate-slide-up">
-							<span class="transcript-label">You said</span>
-							<p class="viet-text text-base leading-relaxed">{userTranscript}</p>
-						</div>
-					{/if}
+						<!-- Past messages -->
+						{#each conversationHistory as message, i}
+							<div class="transcript-card {message.role === 'user' ? 'user' : 'coach'}" class:animate-slide-up={i === conversationHistory.length - 1}>
+								<span class="transcript-label">
+									{message.role === 'user' ? 'You' : (selectedMode === 'coach' ? 'Cô Hà' : 'Lan')}
+								</span>
+								<p class="viet-text text-base leading-relaxed">{message.text}</p>
+							</div>
+						{/each}
 
-					<!-- Coach Transcript -->
-					{#if coachTranscript}
-						<div class="transcript-card coach animate-slide-up">
-							<span class="transcript-label">{selectedMode === 'coach' ? 'Cô Hà' : 'Lan'}</span>
-							<p class="viet-text text-base leading-relaxed">{coachTranscript}</p>
-						</div>
-					{/if}
+						<!-- Streaming coach response (in-progress) -->
+						{#if streamingCoachText}
+							<div class="transcript-card coach streaming animate-slide-up">
+								<span class="transcript-label flex items-center gap-2">
+									{selectedMode === 'coach' ? 'Cô Hà' : 'Lan'}
+									<span class="streaming-indicator"></span>
+								</span>
+								<p class="viet-text text-base leading-relaxed">{streamingCoachText}</p>
+							</div>
+						{/if}
+					</div>
 				</div>
 			</div>
 
@@ -730,14 +818,6 @@
 			0 4px 20px hsl(var(--primary) / 0.3),
 			inset 0 2px 10px hsl(0 0% 100% / 0.1);
 		transition: transform 0.3s ease;
-	}
-
-	.voice-orb.speaking .orb-inner {
-		animation: orb-pulse 1.5s ease-in-out infinite;
-	}
-
-	.voice-orb.listening .orb-inner {
-		animation: orb-breathe 3s ease-in-out infinite;
 	}
 
 	.voice-orb.connecting .orb-inner {
@@ -1160,5 +1240,96 @@
 
 	.bg-viet-jade\/10 {
 		background: hsl(var(--viet-jade) / 0.1);
+	}
+
+	/* Mini Voice Orb for conversation view */
+	.voice-orb-mini {
+		position: relative;
+		width: 44px;
+		height: 44px;
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.orb-inner-mini {
+		width: 36px;
+		height: 36px;
+		border-radius: 50%;
+		background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.8) 100%);
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		position: relative;
+		z-index: 2;
+		box-shadow: 0 2px 10px hsl(var(--primary) / 0.3);
+	}
+
+	.voice-orb-mini.speaking .orb-inner-mini {
+		animation: orb-pulse 1.5s ease-in-out infinite;
+	}
+
+	.voice-orb-mini.listening .orb-inner-mini {
+		animation: orb-breathe 3s ease-in-out infinite;
+	}
+
+	.orb-ring-mini {
+		position: absolute;
+		width: 100%;
+		height: 100%;
+		border-radius: 50%;
+		border: 2px solid hsl(var(--primary) / 0.3);
+		animation: ring-expand 1.5s ease-out infinite;
+	}
+
+	/* Conversation scroll container */
+	.conversation-scroll {
+		scrollbar-width: thin;
+		scrollbar-color: hsl(var(--border)) transparent;
+	}
+
+	.conversation-scroll::-webkit-scrollbar {
+		width: 6px;
+	}
+
+	.conversation-scroll::-webkit-scrollbar-track {
+		background: transparent;
+	}
+
+	.conversation-scroll::-webkit-scrollbar-thumb {
+		background: hsl(var(--border));
+		border-radius: 3px;
+	}
+
+	.conversation-scroll::-webkit-scrollbar-thumb:hover {
+		background: hsl(var(--muted-foreground));
+	}
+
+	/* Streaming indicator */
+	.streaming-indicator {
+		display: inline-block;
+		width: 6px;
+		height: 6px;
+		border-radius: 50%;
+		background: hsl(var(--primary));
+		animation: streaming-pulse 1s ease-in-out infinite;
+	}
+
+	@keyframes streaming-pulse {
+		0%, 100% {
+			opacity: 0.4;
+			transform: scale(0.8);
+		}
+		50% {
+			opacity: 1;
+			transform: scale(1.2);
+		}
+	}
+
+	/* Streaming card variant */
+	.transcript-card.streaming {
+		border-style: dashed;
+		background: hsl(var(--accent) / 0.03);
 	}
 </style>

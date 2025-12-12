@@ -345,7 +345,14 @@ export class RealtimeClient {
 				break;
 
 			case 'response.audio_transcript.done':
-				this.onCoachResponse?.(event.transcript as string, true);
+				// Use the accumulated responseText if it's longer (more complete)
+				// The done event's transcript can sometimes be truncated
+				const doneTranscript = event.transcript as string;
+				const finalText = this.responseText.length >= doneTranscript.length
+					? this.responseText
+					: doneTranscript;
+				this.onCoachResponse?.(finalText, true);
+				this.responseText = ''; // Clear for next response
 				break;
 
 			case 'response.audio.done':

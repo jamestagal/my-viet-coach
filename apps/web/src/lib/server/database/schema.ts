@@ -8,6 +8,9 @@ export const user = sqliteTable('user', {
 	emailVerified: integer('emailVerified', { mode: 'boolean' }).default(false),
 	image: text('image'),
 	role: text('role').default('user'),
+	banned: integer('banned', { mode: 'boolean' }).default(false),
+	banReason: text('banReason'),
+	banExpires: integer('banExpires', { mode: 'timestamp' }),
 	createdAt: integer('createdAt', { mode: 'timestamp' }),
 	updatedAt: integer('updatedAt', { mode: 'timestamp' })
 });

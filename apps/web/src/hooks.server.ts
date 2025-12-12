@@ -1,6 +1,6 @@
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { initDb, initLocalDb, getDb } from '$lib/server/database/db';
-import { getAuth } from '$lib/server/auth';
+import { getAuth, setAuthEnv } from '$lib/server/auth';
 import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit';
@@ -44,6 +44,13 @@ export const handle: Handle = async ({ event, resolve }) => {
 				headers: { 'Content-Type': 'application/json' }
 			});
 		}
+
+		// Pass credentials from Cloudflare env to auth
+		setAuthEnv({
+			GOOGLE_CLIENT_ID: env?.GOOGLE_CLIENT_ID as string,
+			GOOGLE_CLIENT_SECRET: env?.GOOGLE_CLIENT_SECRET as string,
+			BETTER_AUTH_SECRET: env?.BETTER_AUTH_SECRET as string
+		});
 	}
 
 	// Get auth instance (lazily initialized after database)
@@ -125,5 +132,10 @@ export const handle: Handle = async ({ event, resolve }) => {
 	}
 
 	// Better-Auth handler for /api/auth/* routes
-	return svelteKitHandler({ event, resolve, auth });
+	try {
+		return await svelteKitHandler({ event, resolve, auth });
+	} catch (error) {
+		console.error('[Hooks] Auth handler error:', error);
+		throw error;
+	}
 };

@@ -7,19 +7,59 @@ import { emailOTP, admin } from 'better-auth/plugins';
 import { dev } from '$app/environment';
 import { getDb } from './database/db';
 // import { polarClient, handleWebhook } from './utils/polar';
-import {
-	GOOGLE_CLIENT_ID,
-	GOOGLE_CLIENT_SECRET
-	// POLAR_WEBHOOK_SECRET
-} from '$env/static/private';
 import { PUBLIC_PROJECT_NAME, PUBLIC_ORIGIN } from '$env/static/public';
 import { send } from './email/email';
 
 // Lazy-initialized auth instance (database must be initialized first)
 let authInstance: ReturnType<typeof betterAuth> | null = null;
+let cachedEnv: {
+	GOOGLE_CLIENT_ID: string;
+	GOOGLE_CLIENT_SECRET: string;
+	BETTER_AUTH_SECRET: string;
+} | null = null;
+
+/**
+ * Set environment variables for auth (must be called before getAuth in production)
+ * Also resets the auth instance to pick up new env vars
+ */
+export function setAuthEnv(env: {
+	GOOGLE_CLIENT_ID: string;
+	GOOGLE_CLIENT_SECRET: string;
+	BETTER_AUTH_SECRET: string;
+}) {
+	cachedEnv = env;
+	// Reset auth instance so it picks up the new env vars
+	authInstance = null;
+}
 
 function createAuth() {
+	// In dev, use static imports; in production, use cached env from platform
+	const googleClientId = dev
+		? (import.meta.env.GOOGLE_CLIENT_ID as string)
+		: cachedEnv?.GOOGLE_CLIENT_ID;
+	const googleClientSecret = dev
+		? (import.meta.env.GOOGLE_CLIENT_SECRET as string)
+		: cachedEnv?.GOOGLE_CLIENT_SECRET;
+	const secret = dev
+		? (import.meta.env.BETTER_AUTH_SECRET as string)
+		: cachedEnv?.BETTER_AUTH_SECRET;
+
+	console.log('[Auth] Creating auth with:', {
+		hasClientId: !!googleClientId,
+		hasClientSecret: !!googleClientSecret,
+		hasSecret: !!secret,
+		clientIdLength: googleClientId?.length,
+		isDev: dev,
+		hasCachedEnv: !!cachedEnv,
+		baseURL: dev ? 'http://localhost:5173' : PUBLIC_ORIGIN
+	});
+
+	if (!googleClientId || !googleClientSecret) {
+		console.error('[Auth] Missing Google OAuth credentials!');
+	}
+
 	return betterAuth({
+		secret,
 		appName: PUBLIC_PROJECT_NAME,
 		baseURL: dev ? 'http://localhost:5173' : PUBLIC_ORIGIN,
 
@@ -42,8 +82,8 @@ function createAuth() {
 		// Social providers
 		socialProviders: {
 			google: {
-				clientId: GOOGLE_CLIENT_ID,
-				clientSecret: GOOGLE_CLIENT_SECRET
+				clientId: googleClientId || '',
+				clientSecret: googleClientSecret || ''
 			}
 		},
 

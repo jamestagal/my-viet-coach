@@ -1,90 +1,150 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to Claude Code when working with this repository.
 
 ## Project Overview
 
-This is a pnpm monorepo for a full-stack application deployed on Cloudflare. The project manages geo-routed links with analytics and evaluations.
+**Speak Phở Real** - A Vietnamese language learning app with AI-powered conversation practice.
+
+- **Live Site**: https://speakphoreal.com
+- **Cloudflare Pages Project**: `speakphoreal`
+- **D1 Database**: `noi-hay-db` (ID: `1b0a331d-eb7c-4835-96cd-e50f3a7f7a41`)
+
+## Tech Stack
+
+- **Framework**: SvelteKit 2 with Svelte 5
+- **Styling**: Tailwind CSS + bits-ui components
+- **Database**: Cloudflare D1 (SQLite) with Drizzle ORM
+- **Auth**: Better Auth (Google OAuth + Email OTP)
+- **Payments**: Polar.sh
+- **Email**: Resend
+- **Hosting**: Cloudflare Pages
 
 ## Common Commands
 
 ### Development
 ```bash
-pnpm dev-frontend          # Run React frontend (port 3000)
-pnpm dev-data-service      # Run data-service worker
-pnpm build-package         # Build the @repo/data-ops package
-```
-
-### Individual App Commands
-```bash
-# user-application
-pnpm --filter user-application dev      # Dev server
-pnpm --filter user-application build    # Build for production
-pnpm --filter user-application test     # Run tests
-pnpm --filter user-application deploy   # Deploy to Cloudflare
-
-# data-service
-pnpm --filter data-service dev          # Dev with remote bindings
-pnpm --filter data-service test         # Run tests
-pnpm --filter data-service deploy       # Deploy worker
-```
-
-### Database (in packages/data-ops)
-```bash
-pnpm --filter @repo/data-ops pull       # Pull schema from D1
-pnpm --filter @repo/data-ops generate   # Generate migrations
-pnpm --filter @repo/data-ops migrate    # Run migrations
-pnpm --filter @repo/data-ops studio     # Open Drizzle Studio
-```
-
-### Type Generation
-```bash
-pnpm --filter user-application cf-typegen   # Generate worker types
-pnpm --filter data-service cf-typegen       # Generate worker types
-```
-
-## Architecture
-
-### Monorepo Structure
-- `apps/user-application/` - React SPA with Cloudflare Worker backend
-- `apps/data-service/` - Cloudflare Worker entrypoint service
-- `packages/data-ops/` - Shared data layer (database, schemas, auth)
-
-### user-application Stack
-- **Frontend**: React 19 + TanStack Router + TanStack Query + Tailwind CSS v4
-- **Backend**: Cloudflare Worker serving tRPC API at `/trpc`
-- **Build**: Vite 7 with `@cloudflare/vite-plugin`
-- **UI Components**: Radix UI primitives in `src/components/ui/`
-
-### Path Aliases (user-application)
-- `@/*` → `./src/*`
-- `@/worker/*` → `./worker/*`
-
-### Backend Architecture (user-application)
-The worker entry (`worker/index.ts`) handles:
-- tRPC requests at `/trpc` via `@trpc/server/adapters/fetch`
-- Static assets via `env.ASSETS.fetch()`
-
-tRPC router structure:
-- `worker/trpc/router.ts` - Main router combining sub-routers
-- `worker/trpc/routers/` - Domain-specific routers (links, evaluations)
-
-### data-ops Package Exports
-```typescript
-import { initDatabase, getDb } from "@repo/data-ops/database"
-import { ... } from "@repo/data-ops/queries/*"
-import { ... } from "@repo/data-ops/zod-schema/*"
-import { ... } from "@repo/data-ops/durable-objects-helpers"
-import { ... } from "@repo/data-ops/auth"
+pnpm --filter web dev              # Run dev server (port 5173)
+pnpm --filter web build            # Build for production
+pnpm --filter web run deploy:pages # Deploy to Cloudflare Pages
 ```
 
 ### Database
-- Cloudflare D1 (SQLite)
-- Drizzle ORM with `drizzle-kit`
-- Better Auth for authentication with Stripe integration
+```bash
+# Query remote D1 database
+pnpm wrangler d1 execute noi-hay-db --remote --command "SELECT * FROM user;"
 
-### Key Dependencies
-- **Auth**: better-auth with @better-auth/stripe
-- **State**: Zustand for client state, TanStack Query for server state
-- **Routing**: TanStack Router with file-based routes
-- **API**: tRPC v11 for type-safe API calls
+# View table schema
+pnpm wrangler d1 execute noi-hay-db --remote --command "PRAGMA table_info(user);"
+
+# List all tables
+pnpm wrangler d1 execute noi-hay-db --remote --command "SELECT name FROM sqlite_master WHERE type='table';"
+
+# Generate migrations
+pnpm --filter web run generate
+
+# Run migrations
+pnpm --filter web run migrate:prod
+```
+
+### Deployment Logs
+```bash
+# List deployments
+pnpm wrangler pages deployment list --project-name speakphoreal
+
+# Tail deployment logs (replace ID)
+pnpm wrangler pages deployment tail <deployment-id> --project-name speakphoreal
+```
+
+## Project Structure
+
+```
+apps/
+  web/                              # Main SvelteKit application
+    src/
+      lib/
+        server/
+          auth.ts                   # Better Auth configuration
+          database/
+            db.ts                   # D1 database connection
+            schema.ts               # Drizzle schema definitions
+          email/                    # Email templates (Resend)
+        actions/
+          authClient.js             # Client-side auth
+        components/                 # Svelte components
+      routes/
+        (app)/                      # Authenticated routes
+        (home)/                     # Public marketing pages
+        (login)/                    # Auth pages
+        api/                        # API endpoints
+    hooks.server.ts                 # Server hooks (auth, db init)
+    wrangler.toml                   # Cloudflare config
+  api/                              # Additional API services
+  voice/                            # Voice processing services
+packages/                           # Shared packages
+docs/                               # Documentation
+```
+
+## Database Schema
+
+### Core Tables (Better Auth)
+- `user` - User accounts
+- `session` - Active sessions
+- `account` - OAuth provider links (Google)
+- `verification` - OTP/email verification tokens
+
+### Business Tables
+- `product` - Products from Polar
+- `subscription` - User subscriptions
+
+## Environment Variables
+
+### Build-time (apps/web/.env.production)
+```
+PUBLIC_ORIGIN=https://speakphoreal.com
+PUBLIC_PROJECT_NAME="Speak Phở Real"
+```
+
+### Runtime (Cloudflare Dashboard)
+Must be set in Cloudflare Pages > Settings > Environment variables:
+- `GOOGLE_CLIENT_ID` - Google OAuth client ID
+- `GOOGLE_CLIENT_SECRET` - Google OAuth client secret
+- `BETTER_AUTH_SECRET` - Auth encryption secret
+- `RESEND_API_KEY` - Email service API key
+- `FROM_EMAIL` - Sender email address
+- `POLAR_ACCESS_TOKEN` - Polar.sh API token
+- `POLAR_ORGANIZATION_ID` - Polar organization ID
+- `POLAR_WEBHOOK_SECRET` - Polar webhook secret
+- `OPENAI_API_KEY` - OpenAI API key
+
+**Important**: `$env/static/private` variables are resolved at build time. For runtime secrets on Cloudflare Workers, use `platform.env` and pass them via `setAuthEnv()`.
+
+## Auth Architecture
+
+Better Auth is configured with lazy initialization because:
+1. D1 database binding is only available at runtime via `platform.env`
+2. Environment variables must be passed from `hooks.server.ts`
+
+```typescript
+// hooks.server.ts
+setAuthEnv({
+  GOOGLE_CLIENT_ID: env?.GOOGLE_CLIENT_ID,
+  GOOGLE_CLIENT_SECRET: env?.GOOGLE_CLIENT_SECRET,
+  BETTER_AUTH_SECRET: env?.BETTER_AUTH_SECRET
+});
+const auth = getAuth();
+```
+
+## Key Files
+
+- `apps/web/src/hooks.server.ts` - Server hooks, DB/auth initialization
+- `apps/web/src/lib/server/auth.ts` - Better Auth config
+- `apps/web/src/lib/server/database/schema.ts` - Drizzle schema
+- `apps/web/wrangler.toml` - Cloudflare Workers config
+- `apps/web/.env.production` - Build-time env vars
+
+## Notes
+
+- The `admin()` plugin requires `banned`, `banReason`, `banExpires` columns on user table
+- Session table must have camelCase columns: `expiresAt`, `userId`, `ipAddress`, `userAgent`
+- Polar.sh Better Auth plugin is temporarily disabled due to Cloudflare Workers compatibility issues
