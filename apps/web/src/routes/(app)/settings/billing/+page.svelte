@@ -93,6 +93,14 @@
     function handleToggleChange(checked) {
         selectedInterval = checked ? 'year' : 'month';
     }
+
+    /**
+     * Redirect to Polar checkout with the selected product
+     */
+    function startCheckout(productId) {
+        // The @polar-sh/sveltekit Checkout handler expects 'products' as the query param
+        window.location.href = `/api/polar/checkout?products=${productId}`;
+    }
 </script>
 
         {#if subscriptions.length > 0}
@@ -115,7 +123,7 @@
                                      <CircleCheck size={14} /> Active
                                 </span>
                             </div>
-                            <a href="/api/auth/portal" class="button center action px-3 py-2 text-sm">
+                            <a href="/api/polar/portal" class="button center action px-3 py-2 text-sm">
                                 Manage
                             </a>
                         </div>
@@ -147,7 +155,7 @@
                                 type="button"
                                 variant="outline"
                                 size="sm"
-                                onclick={async () => await authClient.checkout({products: [product.productId]})}
+                                onclick={() => startCheckout(product.productId)}
                             >
                                 {product.interval === 'one_time' ? 'Purchase' : 'Subscribe'}
                             </Button>
