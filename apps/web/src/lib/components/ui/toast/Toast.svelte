@@ -124,7 +124,8 @@
             warning: 'bg-warning/90 text-main'
         };
     
-        const direction = positionClass[position].direction;
+        // Use $derived for reactive access to position
+        let direction = $derived(positionClass[position].direction);
         
     </script>
     

@@ -574,7 +574,11 @@
 
 <!-- Session Summary Modal -->
 {#if showSummaryModal}
-	<div class="modal-overlay" onclick={() => closeSummary(false)}>
+	<!-- svelte-ignore a11y_click_events_have_key_events -->
+	<!-- svelte-ignore a11y_no_static_element_interactions -->
+	<div class="modal-overlay" onclick={() => closeSummary(false)} role="dialog" aria-modal="true" tabindex="-1">
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 			<!-- Modal Header -->
 			<div class="modal-header">

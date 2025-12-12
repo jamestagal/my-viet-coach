@@ -6,16 +6,14 @@
     let currentUrl = $derived(page.url.pathname);
     let isOpen = $derived(link.isOpen || currentUrl.startsWith(link.href));
 
-
-    const { 
-        label,
-        href,
-        disabled = false,
-        icon: Icon,
-        chevron = false,
-        external = false,
-        sublinks = []
-    } = link;
+    // Use $derived for reactive access to link properties
+    let label = $derived(link.label);
+    let href = $derived(link.href);
+    let disabled = $derived(link.disabled ?? false);
+    let Icon = $derived(link.icon);
+    let chevron = $derived(link.chevron ?? false);
+    let external = $derived(link.external ?? false);
+    let sublinks = $derived(link.sublinks ?? []);
 
     let iconSize = 16;
     let iconStrokeWidth = 2;

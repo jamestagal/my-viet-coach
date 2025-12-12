@@ -1,13 +1,14 @@
 <script lang="ts">
-	import type { ComponentType } from 'svelte';
+	import type { ComponentType, Snippet } from 'svelte';
 
 	interface Props {
 		title: string;
 		subtitle?: string;
 		icon?: ComponentType;
+		children?: Snippet;
 	}
 
-	let { title, subtitle, icon: Icon }: Props = $props();
+	let { title, subtitle, icon: Icon, children }: Props = $props();
 </script>
 
 <header class="page-header">
@@ -25,7 +26,9 @@
 		</div>
 	</div>
 	<div class="header-actions">
-		<slot />
+		{#if children}
+			{@render children()}
+		{/if}
 	</div>
 </header>
 

@@ -86,13 +86,17 @@
 					</div>
 				{/if}
 
-				<nav class="sidebar-nav" onclick={closeSidebarOnMobile}>
+				<!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
+		<!-- svelte-ignore a11y_click_events_have_key_events -->
+		<nav class="sidebar-nav" onclick={closeSidebarOnMobile}>
 					{#each currentLinks as link (link.href)}
 						<MenuLink {link} />
 					{/each}
 				</nav>
 
 				{#if isAdmin}
+					<!-- svelte-ignore a11y_click_events_have_key_events -->
+					<!-- svelte-ignore a11y_no_static_element_interactions -->
 					<div class="sidebar-footer" onclick={closeSidebarOnMobile}>
 						{#if isInAdminSection}
 							<MenuLink link={backToAppLink} />
