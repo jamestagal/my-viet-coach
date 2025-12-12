@@ -1,8 +1,8 @@
 name = "noi-hay"
-compatibility_date = "2024-11-12"
+compatibility_date = "2025-01-01"
 pages_build_output_dir = ".svelte-kit/cloudflare"
 
-# Node.js compatibility
+# Node.js compatibility - required for better-auth
 compatibility_flags = ["nodejs_compat"]
 
 # D1 Database binding

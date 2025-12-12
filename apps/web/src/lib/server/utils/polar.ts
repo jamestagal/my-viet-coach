@@ -5,10 +5,30 @@ import { getDb } from '$lib/server/database/db';
 import { subscription, product } from '$lib/server/database/schema';
 import { eq, and } from 'drizzle-orm';
 
-export const polarClient = new Polar({
-	accessToken: POLAR_ACCESS_TOKEN,
-	server: dev ? 'sandbox' : 'production'
-});
+// Lazy-initialized Polar client to prevent crashes when env vars are missing
+let _polarClient: Polar | null = null;
+
+export function getPolarClient(): Polar {
+	if (!_polarClient) {
+		if (!POLAR_ACCESS_TOKEN) {
+			throw new Error('POLAR_ACCESS_TOKEN environment variable is not set');
+		}
+		_polarClient = new Polar({
+			accessToken: POLAR_ACCESS_TOKEN,
+			server: dev ? 'sandbox' : 'production'
+		});
+	}
+	return _polarClient;
+}
+
+// Keep backwards compatibility - but this will now throw if accessed without the token
+export const polarClient = {
+	get customers() { return getPolarClient().customers; },
+	get products() { return getPolarClient().products; },
+	get subscriptions() { return getPolarClient().subscriptions; },
+	get checkouts() { return getPolarClient().checkouts; },
+	get orders() { return getPolarClient().orders; }
+} as unknown as Polar;
 
 // Type for subscription webhook event
 interface SubscriptionWebhookEvent {
