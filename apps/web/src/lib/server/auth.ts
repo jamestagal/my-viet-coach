@@ -1,14 +1,16 @@
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
 import { emailOTP, admin } from 'better-auth/plugins';
-import { polar, checkout, portal, webhooks } from '@polar-sh/better-auth';
+// TEMPORARILY DISABLED: @polar-sh/better-auth causes createRequire() error on Cloudflare Workers
+// See: https://github.com/better-auth/better-auth/issues/1143
+// import { polar, checkout, portal, webhooks } from '@polar-sh/better-auth';
 import { dev } from '$app/environment';
 import { getDb } from './database/db';
-import { polarClient, handleWebhook } from './utils/polar';
+// import { polarClient, handleWebhook } from './utils/polar';
 import {
 	GOOGLE_CLIENT_ID,
-	GOOGLE_CLIENT_SECRET,
-	POLAR_WEBHOOK_SECRET
+	GOOGLE_CLIENT_SECRET
+	// POLAR_WEBHOOK_SECRET
 } from '$env/static/private';
 import { PUBLIC_PROJECT_NAME, PUBLIC_ORIGIN } from '$env/static/public';
 import { send } from './email/email';
@@ -78,29 +80,30 @@ function createAuth() {
 				async sendVerificationOTP({ email, otp }) {
 					await send.otpVerification({ toEmail: email, otp });
 				}
-			}),
-			polar({
-				client: polarClient,
-				createCustomerOnSignUp: true,
-				enableCustomerPortal: true,
-				use: [
-					checkout({
-						successUrl: '/settings/billing/success?checkout_id={CHECKOUT_ID}',
-						authenticatedUsersOnly: true
-					}),
-					portal(),
-					webhooks({
-						secret: POLAR_WEBHOOK_SECRET || '',
-						onPayLoad: async (event) => {
-							if (event.type === 'order.paid') {
-								await handleWebhook.onOrderPaid(event);
-							}
-						},
-						onSubscriptionUpdated: handleWebhook.onSubscriptionUpdated,
-						onProductUpdated: handleWebhook.onProductUpdated
-					})
-				]
 			})
+			// TEMPORARILY DISABLED: Polar plugin causes createRequire() error on Cloudflare Workers
+			// polar({
+			// 	client: polarClient,
+			// 	createCustomerOnSignUp: true,
+			// 	enableCustomerPortal: true,
+			// 	use: [
+			// 		checkout({
+			// 			successUrl: '/settings/billing/success?checkout_id={CHECKOUT_ID}',
+			// 			authenticatedUsersOnly: true
+			// 		}),
+			// 		portal(),
+			// 		webhooks({
+			// 			secret: POLAR_WEBHOOK_SECRET || '',
+			// 			onPayLoad: async (event) => {
+			// 				if (event.type === 'order.paid') {
+			// 					await handleWebhook.onOrderPaid(event);
+			// 				}
+			// 			},
+			// 			onSubscriptionUpdated: handleWebhook.onSubscriptionUpdated,
+			// 			onProductUpdated: handleWebhook.onProductUpdated
+			// 		})
+			// 	]
+			// })
 		]
 	});
 }
