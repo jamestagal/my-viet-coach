@@ -23,6 +23,11 @@ function createAuth() {
 		appName: PUBLIC_PROJECT_NAME,
 		baseURL: dev ? 'http://localhost:5173' : PUBLIC_ORIGIN,
 
+		// Trust Cloudflare Pages preview deployments and custom domain
+		trustedOrigins: dev
+			? ['http://localhost:5173']
+			: [PUBLIC_ORIGIN, 'https://*.speakphoreal.pages.dev', 'https://speakphoreal.com'],
+
 		database: drizzleAdapter(getDb(), {
 			provider: 'sqlite'
 		}),

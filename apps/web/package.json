@@ -6,7 +6,7 @@
 		"dev": "vite dev",
 		"build": "vite build",
 		"preview": "vite preview --mode test",
-		"deploy:pages": "wrangler pages deploy .svelte-kit/cloudflare --project-name noi-hay",
+		"deploy:pages": "wrangler pages deploy .svelte-kit/cloudflare --project-name speakphoreal",
 		"test": "npm run test:integration",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -60,8 +60,8 @@
 	"type": "module",
 	"dependencies": {
 		"@internationalized/date": "^3.5.6",
-		"@polar-sh/better-auth": "^1.6.1",
 		"@polar-sh/sdk": "^0.41.5",
+		"@polar-sh/sveltekit": "^0.7.1",
 		"@tailwindcss/typography": "^0.5.15",
 		"better-auth": "1.4.6",
 		"chart.js": "^4.5.1",
