@@ -1,15 +1,7 @@
 import { Resend } from 'resend';
-import { SMTPClient } from 'emailjs';
 import { dev } from '$app/environment';
 import { env } from '$env/dynamic/private';
 import { PUBLIC_PROJECT_NAME } from '$env/static/public';
-
-// Local dev: Mailpit on localhost:1025
-const localClient = new SMTPClient({
-	host: 'localhost',
-	port: 1025,
-	ssl: false
-});
 
 // Production: Resend SDK (native Cloudflare Workers support)
 // Initialize lazily when needed
@@ -21,6 +13,21 @@ function getResend() {
 	return resend;
 }
 
+// Local dev: Mailpit - initialize lazily to avoid breaking Cloudflare Workers
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let localClient: any = null;
+async function getLocalClient() {
+	if (!localClient && dev) {
+		const { SMTPClient } = await import('emailjs');
+		localClient = new SMTPClient({
+			host: 'localhost',
+			port: 1025,
+			ssl: false
+		});
+	}
+	return localClient;
+}
+
 interface EmailOptions {
 	to: string;
 	subject: string;
@@ -29,7 +36,12 @@ interface EmailOptions {
 
 async function sendLocalEmail(options: EmailOptions) {
 	try {
-		await localClient.sendAsync({
+		const client = await getLocalClient();
+		if (!client) {
+			console.error('[Email] Local client not available');
+			return;
+		}
+		await client.sendAsync({
 			text: options.subject,
 			from: `${PUBLIC_PROJECT_NAME} <noreply@localhost>`,
 			to: options.to,
