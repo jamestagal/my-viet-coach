@@ -13,6 +13,8 @@
  * @property ogType - Open Graph type. Always "website" unless "article" for a blog post or similar.
  * @property ogTitle - Open Graph title.
  * @property ogDescription - Open Graph description.
+ * @property publishedTime - ISO 8601 date string for article publish date (for JSON-LD schema).
+ * @property modifiedTime - ISO 8601 date string for article modification date (for JSON-LD schema).
  */
 export type Meta = {
 	title: string;
@@ -21,6 +23,9 @@ export type Meta = {
 	ogTitle?: string;
 	ogDescription?: string;
 	ogImage?: string;
+	// Article-specific fields for JSON-LD structured data
+	publishedTime?: string;
+	modifiedTime?: string;
 };
 
 /**

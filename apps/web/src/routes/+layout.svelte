@@ -8,7 +8,8 @@
 	import {
 		PUBLIC_DEFAULT_DESCRIPTION,
 		PUBLIC_DEFAULT_TITLE,
-		PUBLIC_PROJECT_NAME
+		PUBLIC_PROJECT_NAME,
+		PUBLIC_ORIGIN
 	} from '$env/static/public';
 
 	let { children } = $props();
@@ -27,6 +28,62 @@
 			pageParam: page.params?.page ?? ''
 		})
 	);
+
+	// JSON-LD Structured Data - Organization schema
+	const organizationSchema = $derived(
+		JSON.stringify({
+			'@context': 'https://schema.org',
+			'@type': 'Organization',
+			name: PUBLIC_PROJECT_NAME,
+			url: PUBLIC_ORIGIN,
+			logo: `${PUBLIC_ORIGIN}/icon.svg`,
+			description: PUBLIC_DEFAULT_DESCRIPTION
+		})
+	);
+
+	// JSON-LD Structured Data - WebSite schema with search action
+	const websiteSchema = $derived(
+		JSON.stringify({
+			'@context': 'https://schema.org',
+			'@type': 'WebSite',
+			name: PUBLIC_PROJECT_NAME,
+			url: PUBLIC_ORIGIN,
+			description: PUBLIC_DEFAULT_DESCRIPTION
+		})
+	);
+
+	// JSON-LD Structured Data - WebPage/Article schema (dynamic per page)
+	const webPageSchema = $derived(() => {
+		const imageUrl = meta.ogImage.startsWith('http') ? meta.ogImage : `${PUBLIC_ORIGIN}${meta.ogImage}`;
+		const baseSchema = {
+			'@context': 'https://schema.org',
+			'@type': meta.ogType === 'article' ? 'Article' : 'WebPage',
+			name: meta.title,
+			description: meta.description,
+			url: meta.canonicalUrl,
+			image: imageUrl,
+			isPartOf: {
+				'@type': 'WebSite',
+				name: PUBLIC_PROJECT_NAME,
+				url: PUBLIC_ORIGIN
+			}
+		};
+
+		// Add article-specific fields if ogType is article
+		if (meta.ogType === 'article' && page.data?.meta?.publishedTime) {
+			return JSON.stringify({
+				...baseSchema,
+				datePublished: page.data.meta.publishedTime,
+				dateModified: page.data.meta.modifiedTime || page.data.meta.publishedTime,
+				author: {
+					'@type': 'Organization',
+					name: PUBLIC_PROJECT_NAME
+				}
+			});
+		}
+
+		return JSON.stringify(baseSchema);
+	});
 </script>
 
 <svelte:head>
@@ -74,6 +131,17 @@
 			https://developer.twitter.com/en/docs/twitter-for-websites/cards/guides/getting-started
 	  -->
 	<meta name="twitter:card" content="summary_large_image" />
+
+	<!--
+	  JSON-LD Structured Data (Schema.org)
+	  - Helps search engines understand content structure
+	  - Organization: Brand/company info
+	  - WebSite: Site-level info
+	  - WebPage/Article: Page-specific info (dynamic)
+	  -->
+	{@html `<script type="application/ld+json">${organizationSchema}</script>`}
+	{@html `<script type="application/ld+json">${websiteSchema}</script>`}
+	{@html `<script type="application/ld+json">${webPageSchema()}</script>`}
 </svelte:head>
 
 {@render children()}
