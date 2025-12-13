@@ -122,6 +122,7 @@
 	<meta property="og:description" content={meta.ogDescription} />
 	<meta property="og:image" content={meta.ogImage} />
 	<meta property="og:url" content={meta.ogUrl} />
+	<meta property="og:logo" content={`${PUBLIC_ORIGIN}/favicon.svg`} />
 
 	<!--
 	  Twitter
