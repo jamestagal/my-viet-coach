@@ -36,7 +36,7 @@
 			'@type': 'Organization',
 			name: PUBLIC_PROJECT_NAME,
 			url: PUBLIC_ORIGIN,
-			logo: `${PUBLIC_ORIGIN}/icon.svg`,
+			logo: `${PUBLIC_ORIGIN}/favicon.svg`,
 			description: PUBLIC_DEFAULT_DESCRIPTION
 		})
 	);
@@ -96,17 +96,15 @@
 	<!--
 		  Icons
 		  - https://evilmartians.com/chronicles/how-to-favicon-in-2021-six-files-that-fit-most-needs
-			(Usually kept up to date.)
-		  - `.ico` is fallback for RSS readers & browsers that don't support SVG:
-			 https://caniuse.com/link-icon-svg
-	  - `manifest.webmanifest` includes links to 192x192 & 512x512 PNGs.
-	  - `apple-touch-icon` is 180x180, but we can use our 192x192 instead.
+		  - SVG favicon for modern browsers, ICO for legacy fallback
+		  - PWA manifest includes 192x192 & 512x512 PNGs
 	  -->
-
-	<link rel="icon" href="/favicon.ico" sizes="32x32" />
-	<link rel="icon" href="/icon.svg" type="image/svg+xml" />
-	<link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-	<link rel="manifest" href="/manifest.webmanifest" />
+	<link rel="icon" type="image/png" href="/favicon-96x96.png" sizes="96x96" />
+	<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+	<link rel="shortcut icon" href="/favicon.ico" />
+	<link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+	<meta name="apple-mobile-web-app-title" content={PUBLIC_PROJECT_NAME} />
+	<link rel="manifest" href="/site.webmanifest" />
 
 	<!--
 		Open Graph
