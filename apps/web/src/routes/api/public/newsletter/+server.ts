@@ -44,7 +44,8 @@ export const POST: RequestHandler = async ({ request }) => {
 
 		// Send notification email to admin
 		const notificationEmail = env.WAITLIST_NOTIFICATION_EMAIL || 'waitlist@speakphoreal.com';
-		const fromEmail = env.FROM_EMAIL || 'noreply@speakphoreal.com';
+		// Use mail.speakphoreal.com subdomain - must match verified domain in Resend
+		const fromEmail = env.FROM_EMAIL || 'noreply@mail.speakphoreal.com';
 
 		console.log('[Waitlist] Sending notification to:', notificationEmail, 'from:', fromEmail);
 
