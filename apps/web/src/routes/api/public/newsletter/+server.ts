@@ -46,7 +46,9 @@ export const POST: RequestHandler = async ({ request }) => {
 		const notificationEmail = env.WAITLIST_NOTIFICATION_EMAIL || 'waitlist@speakphoreal.com';
 		const fromEmail = env.FROM_EMAIL || 'noreply@speakphoreal.com';
 
-		await resend.emails.send({
+		console.log('[Waitlist] Sending notification to:', notificationEmail, 'from:', fromEmail);
+
+		const { data, error: sendError } = await resend.emails.send({
 			from: `${PUBLIC_PROJECT_NAME} <${fromEmail}>`,
 			to: notificationEmail,
 			subject: `New Waitlist Signup: ${email}`,
@@ -69,7 +71,12 @@ export const POST: RequestHandler = async ({ request }) => {
 			`
 		});
 
-		console.log('[Waitlist] Notification sent for:', email);
+		if (sendError) {
+			console.error('[Waitlist] Resend error:', sendError);
+			throw error(500, { message: 'Failed to send notification email' });
+		}
+
+		console.log('[Waitlist] Notification sent for:', email, 'Email ID:', data?.id);
 
 		return json({ success: true, message: 'Subscribed successfully' });
 	} catch (err) {
