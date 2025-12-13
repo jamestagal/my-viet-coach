@@ -108,9 +108,9 @@ ${difficultyInstructions[options.difficulty]}
 		},
 		turn_detection: {
 			type: 'server_vad',
-			threshold: 0.5,
-			prefix_padding_ms: 300,
-			silence_duration_ms: 700
+			threshold: 0.6, // Higher threshold = less sensitive, reduces false triggers
+			prefix_padding_ms: 400, // More padding before speech starts
+			silence_duration_ms: 1000 // Wait longer before ending turn (1 second)
 		}
 	};
 }
@@ -166,9 +166,9 @@ ${difficultyInstructions[options.difficulty]}
 		},
 		turn_detection: {
 			type: 'server_vad',
-			threshold: 0.5,
-			prefix_padding_ms: 300,
-			silence_duration_ms: 700
+			threshold: 0.6, // Higher threshold = less sensitive, reduces false triggers
+			prefix_padding_ms: 400, // More padding before speech starts
+			silence_duration_ms: 1000 // Wait longer before ending turn (1 second)
 		}
 	};
 }
