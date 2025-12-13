@@ -1,7 +1,7 @@
 # Speak Phở Real — Structured Dialogues & Unique Feature Stack
 
 > **Document Version:** 1.0  
-> **Last Updated:** December 2024  
+> **Last Updated in Dec:** December 2024  
 > **Status:** Content Planning
 
 ---
