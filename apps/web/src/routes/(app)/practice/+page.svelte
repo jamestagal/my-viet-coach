@@ -181,40 +181,11 @@
 					}
 				},
 				onCoachAudioStart: () => {
-					// If there's leftover streaming text from a previous response that didn't finalize,
-					// save it to history before starting a new response
-					if (streamingCoachText.trim()) {
-						conversationHistory = [...conversationHistory, {
-							role: 'coach',
-							text: streamingCoachText.trim(),
-							timestamp: Date.now()
-						}];
-						sessionTranscript = [...sessionTranscript, {
-							role: 'coach',
-							text: streamingCoachText.trim(),
-							timestamp: Date.now()
-						}];
-					}
 					isCoachSpeaking = true;
 					streamingCoachText = '';
 				},
 				onCoachAudioEnd: () => {
 					isCoachSpeaking = false;
-					// If streaming text wasn't finalized via onCoachResponse, save it now
-					if (streamingCoachText.trim()) {
-						conversationHistory = [...conversationHistory, {
-							role: 'coach',
-							text: streamingCoachText.trim(),
-							timestamp: Date.now()
-						}];
-						sessionTranscript = [...sessionTranscript, {
-							role: 'coach',
-							text: streamingCoachText.trim(),
-							timestamp: Date.now()
-						}];
-						streamingCoachText = '';
-						scrollToBottom();
-					}
 				},
 				onConnectionStateChange: (state) => {
 					if (state === 'connected') {
