@@ -5,14 +5,14 @@
 	import { beforeNavigate, afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
 	import { getMeta } from '$lib/meta';
+	import {
+		PUBLIC_DEFAULT_DESCRIPTION,
+		PUBLIC_DEFAULT_TITLE,
+		PUBLIC_PROJECT_NAME,
+		PUBLIC_ORIGIN
+	} from '$env/static/public';
 
-	let { children, data } = $props();
-
-	// Get env vars from server load function (dynamic, reads from wrangler.toml at runtime)
-	const PUBLIC_PROJECT_NAME = $derived(data.env.PUBLIC_PROJECT_NAME ?? '');
-	const PUBLIC_DEFAULT_TITLE = $derived(data.env.PUBLIC_DEFAULT_TITLE ?? '');
-	const PUBLIC_DEFAULT_DESCRIPTION = $derived(data.env.PUBLIC_DEFAULT_DESCRIPTION ?? '');
-	const PUBLIC_ORIGIN = $derived(data.env.PUBLIC_ORIGIN ?? '');
+	let { children } = $props();
 
 	if (browser && !dev) {
 		beforeNavigate(() => posthog.capture('$pageleave'));
