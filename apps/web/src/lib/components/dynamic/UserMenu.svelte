@@ -9,6 +9,11 @@
 
     const session = authClient.useSession();
 
+    async function handleLogout() {
+        await authClient.signOut();
+        goto('/');
+    }
+
     async function handleStopImpersonation() {
         try {
             let { data, error } = await authClient.admin.stopImpersonating({
@@ -78,7 +83,7 @@
                         {/if}
                     </a>
                 {/if}
-                <button type="button" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted text-sm" onclick={() => authClient.signOut()}>
+                <button type="button" class="flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-muted text-sm" onclick={handleLogout}>
                     <LogOut size={16} strokeWidth={1.5} />
                     Log out
                 </button>

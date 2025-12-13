@@ -1,7 +1,35 @@
-<script>
+<script lang="ts">
     import { PUBLIC_APP_NAME } from '$env/static/public';
+    import { browser } from '$app/environment';
+    import { page } from '$app/stores';
     import VietLogo from '$lib/components/icons/VietLogo.svelte';
     const { children } = $props();
+
+    // Show login only when #login hash is present in URL
+    let showLogin = $state(false);
+
+    $effect(() => {
+        if (browser) {
+            // Check on initial load and hash changes
+            showLogin = window.location.hash === '#login';
+
+            // Listen for hash changes
+            const handleHashChange = () => {
+                showLogin = window.location.hash === '#login';
+            };
+            window.addEventListener('hashchange', handleHashChange);
+
+            return () => window.removeEventListener('hashchange', handleHashChange);
+        }
+    });
+
+    function scrollToWaitlist(e: MouseEvent) {
+        e.preventDefault();
+        const waitlistSection = document.getElementById('waitlist');
+        if (waitlistSection) {
+            waitlistSection.scrollIntoView({ behavior: 'smooth' });
+        }
+    }
 </script>
 
 <header>
@@ -17,12 +45,17 @@
 
         <!-- right container -->
         <div class="flex items-center gap-4">
-            <a href="/login" class="text-muted-foreground hover:text-foreground transition-colors font-medium">
-                Login
-            </a>
-            <a href="/login" class="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors">
+            {#if showLogin}
+                <a href="/login" class="text-muted-foreground hover:text-foreground transition-colors font-medium">
+                    Login
+                </a>
+            {/if}
+            <button
+                onclick={scrollToWaitlist}
+                class="inline-flex items-center px-4 py-2 bg-primary text-primary-foreground text-sm font-medium rounded-lg hover:bg-primary/90 transition-colors cursor-pointer"
+            >
                 Get Started
-            </a>
+            </button>
         </div>
     </nav>
 </header>

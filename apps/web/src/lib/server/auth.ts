@@ -10,6 +10,27 @@ import { getDb } from './database/db';
 import { PUBLIC_PROJECT_NAME, PUBLIC_ORIGIN } from '$env/static/public';
 import { send } from './email/email';
 
+/**
+ * Email Allowlist - Only these emails can sign up/login
+ * Add beta testers here as needed
+ *
+ * Set to empty array [] to allow all emails (open registration)
+ */
+const ALLOWED_EMAILS: string[] = [
+	// Add your email here
+	'benjaminjameswaller@gmail.com',
+	// 'betatester@example.com',
+];
+
+/**
+ * Check if an email is allowed to sign up
+ * Returns true if allowlist is empty (open registration) or email is in the list
+ */
+export function isEmailAllowed(email: string): boolean {
+	if (ALLOWED_EMAILS.length === 0) return true;
+	return ALLOWED_EMAILS.some((allowed) => allowed.toLowerCase() === email.toLowerCase());
+}
+
 // Lazy-initialized auth instance (database must be initialized first)
 let authInstance: ReturnType<typeof betterAuth> | null = null;
 let cachedEnv: {
@@ -123,6 +144,11 @@ function createAuth() {
 			admin(),
 			emailOTP({
 				async sendVerificationOTP({ email, otp }) {
+					// Check email allowlist before sending OTP
+					if (!isEmailAllowed(email)) {
+						console.log('[Auth] Blocked OTP request for non-allowed email:', email);
+						throw new Error('Sign-ups are currently invite-only. Join the waitlist to get early access!');
+					}
 					await send.otpVerification({ toEmail: email, otp });
 				}
 			})

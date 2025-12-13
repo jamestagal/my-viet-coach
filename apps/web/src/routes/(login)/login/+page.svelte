@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { authClient } from '$lib/actions/authClient';
 	import { goto } from '$app/navigation';
+	import { page } from '$app/stores';
 	import { Button, buttonVariants } from '$lib/components/ui/button';
 	import { Input } from '$lib/components/ui/input';
 	import Google from '$lib/components/icons/Google.svelte';
@@ -15,6 +16,14 @@
 	let allowResendOTP = $state(false);
 	let errorMessage = $state('');
 	let pinCodeComponent: { reset: () => void } | null = $state(null);
+
+	// Check for invite_only error from URL params (OAuth redirect)
+	$effect(() => {
+		const error = $page.url.searchParams.get('error');
+		if (error === 'invite_only') {
+			errorMessage = 'Sign-ups are currently invite-only. Join the waitlist to get early access!';
+		}
+	});
 
 	const signInWithGoogle = () => {
 		authClient.signIn.social({ provider: 'google', callbackURL: '/dashboard' });

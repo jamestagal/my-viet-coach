@@ -9,7 +9,7 @@
 	const handleLogout = async () => {
 		isLoading = true;
 		await authClient.signOut();
-		goto('/login');
+		goto('/');
 	};
 </script>
 

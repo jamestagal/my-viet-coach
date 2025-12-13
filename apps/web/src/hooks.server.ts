@@ -1,10 +1,10 @@
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { initDb, initLocalDb, getDb } from '$lib/server/database/db';
-import { getAuth, setAuthEnv } from '$lib/server/auth';
+import { getAuth, setAuthEnv, isEmailAllowed } from '$lib/server/auth';
 import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit';
-import { subscription } from '$lib/server/database/schema';
+import { subscription, user, session, account } from '$lib/server/database/schema';
 import { eq, and, or } from 'drizzle-orm';
 
 export const handle: Handle = async ({ event, resolve }) => {
@@ -74,6 +74,33 @@ export const handle: Handle = async ({ event, resolve }) => {
 			});
 
 			if (fetchedSession) {
+				// Check if user's email is on the allowlist
+				// If not, delete their session and user data (for OAuth sign-ups)
+				const userEmail = fetchedSession.user.email;
+				if (userEmail && !isEmailAllowed(userEmail)) {
+					console.log('[Hooks] Blocking non-allowed email:', userEmail);
+					const db = getDb();
+					const userId = fetchedSession.user.id;
+
+					// Delete user's data from all auth tables
+					await db.delete(session).where(eq(session.userId, userId));
+					await db.delete(account).where(eq(account.userId, userId));
+					await db.delete(user).where(eq(user.id, userId));
+
+					// Clear locals and redirect to login with error
+					event.locals.user = null;
+					event.locals.session = null;
+					event.locals.subscription = null;
+
+					// Return error response
+					return new Response(null, {
+						status: 302,
+						headers: {
+							Location: '/login?error=invite_only'
+						}
+					});
+				}
+
 				event.locals.user = fetchedSession.user;
 				event.locals.session = fetchedSession.session;
 

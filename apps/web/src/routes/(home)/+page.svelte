@@ -2,6 +2,13 @@
 	import { PUBLIC_APP_NAME } from '$env/static/public';
 	import { ArrowRight, MessageCircle, Sparkles, BookOpen } from 'lucide-svelte';
 	import { Newsletter } from '$lib/components/dynamic';
+
+	function scrollToWaitlist() {
+		const waitlistSection = document.getElementById('waitlist');
+		if (waitlistSection) {
+			waitlistSection.scrollIntoView({ behavior: 'smooth' });
+		}
+	}
 </script>
 
 <svelte:head>
@@ -34,14 +41,14 @@
 				</p>
 
 				<div class="flex flex-col sm:flex-row gap-4 justify-center items-center">
-					<a
-						href="/login"
-						class="inline-flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-lg group"
+					<button
+						onclick={scrollToWaitlist}
+						class="inline-flex items-center gap-3 px-8 py-4 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-lg group cursor-pointer"
 					>
 						<span>Bắt đầu học</span>
 						<ArrowRight class="w-5 h-5 transition-transform group-hover:translate-x-1" />
-					</a>
-					<span class="text-muted-foreground text-sm">Start Learning</span>
+					</button>
+					<span class="text-muted-foreground text-sm">Join the Waitlist</span>
 				</div>
 			</div>
 		</div>
@@ -126,26 +133,26 @@
 				</div>
 
 				<div class="text-center mt-8">
-					<a
-						href="/login"
-						class="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors font-medium"
+					<button
+						onclick={scrollToWaitlist}
+						class="inline-flex items-center gap-2 text-primary hover:text-primary/80 transition-colors font-medium cursor-pointer"
 					>
-						<span>Start your conversation</span>
+						<span>Join the waitlist</span>
 						<ArrowRight class="w-4 h-4" />
-					</a>
+					</button>
 				</div>
 			</div>
 		</div>
 	</section>
 
-	<!-- Newsletter Section -->
-	<section class="container mx-auto px-4 py-16">
+	<!-- Newsletter / Waitlist Section -->
+	<section id="waitlist" class="container mx-auto px-4 py-16 scroll-mt-24">
 		<div class="max-w-md mx-auto text-center">
 			<h2 class="text-2xl md:text-3xl text-foreground mb-4">
-				Stay Updated
+				Join the Waitlist
 			</h2>
 			<p class="text-muted-foreground mb-6">
-				Get weekly Vietnamese learning tips and updates on new features.
+				Get early access and weekly Vietnamese learning tips.
 			</p>
 			<Newsletter saveInBrowser={true} />
 		</div>

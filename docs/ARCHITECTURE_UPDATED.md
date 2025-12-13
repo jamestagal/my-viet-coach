@@ -1,11 +1,158 @@
-# Nói Hay - Vietnamese Language Coach Architecture
+# Speak Phở Real - Vietnamese Language Coach Architecture
 
 ## Overview
 
 A real-time voice-based Vietnamese language coaching app for intermediate-to-upper-intermediate learners. Users have conversational practice with an AI tutor that provides grammar corrections and tone feedback.
 
-**Project Name:** Nói Hay  
-**Target:** Personal use, ~$15-25/month budget
+**Project Name:** Speak Phở Real
+**Live Site:** https://speakphoreal.com
+**Tech Stack:** SvelteKit 2 + Svelte 5, Cloudflare Pages/Workers, D1 (SQLite), Better Auth, Polar.sh
+
+---
+
+## Authentication Architecture
+
+### The Cloudflare Workers Challenge
+
+Cloudflare Workers have a unique constraint: D1 database bindings are only available at request time via `platform.env`, not at module initialization. This requires a **lazy initialization pattern** for Better Auth.
+
+### Lazy Auth Initialization Pattern
+
+```typescript
+// src/lib/server/auth.ts
+
+import { betterAuth } from 'better-auth';
+import { drizzleAdapter } from 'better-auth/adapters/drizzle';
+import { emailOTP, admin } from 'better-auth/plugins';
+
+// Lazy-initialized auth instance
+let authInstance: ReturnType<typeof betterAuth> | null = null;
+let cachedEnv: {
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  BETTER_AUTH_SECRET: string;
+} | null = null;
+
+/**
+ * Set environment variables for auth (must be called before getAuth in production)
+ */
+export function setAuthEnv(env: {
+  GOOGLE_CLIENT_ID: string;
+  GOOGLE_CLIENT_SECRET: string;
+  BETTER_AUTH_SECRET: string;
+}) {
+  cachedEnv = env;
+  authInstance = null; // Reset to pick up new env
+}
+
+function createAuth() {
+  // In dev, use static imports; in production, use cached env from platform
+  const googleClientId = dev
+    ? import.meta.env.GOOGLE_CLIENT_ID
+    : cachedEnv?.GOOGLE_CLIENT_ID;
+  // ... other env vars
+
+  return betterAuth({
+    database: drizzleAdapter(getDb(), { provider: 'sqlite' }),
+    socialProviders: {
+      google: {
+        clientId: googleClientId || '',
+        clientSecret: googleClientSecret || ''
+      }
+    },
+    plugins: [admin(), emailOTP({ /* ... */ })]
+  });
+}
+
+export function getAuth() {
+  if (!authInstance) {
+    authInstance = createAuth();
+  }
+  return authInstance;
+}
+```
+
+### Hooks Integration
+
+In `src/hooks.server.ts`, the environment is set before auth is used:
+
+```typescript
+import { setDb } from '$lib/server/database/db';
+import { setAuthEnv, getAuth } from '$lib/server/auth';
+
+export const handle: Handle = async ({ event, resolve }) => {
+  // Initialize database with D1 binding
+  if (event.platform?.env?.DB) {
+    setDb(event.platform.env.DB);
+  }
+
+  // Set auth environment variables
+  if (event.platform?.env) {
+    setAuthEnv({
+      GOOGLE_CLIENT_ID: event.platform.env.GOOGLE_CLIENT_ID,
+      GOOGLE_CLIENT_SECRET: event.platform.env.GOOGLE_CLIENT_SECRET,
+      BETTER_AUTH_SECRET: event.platform.env.BETTER_AUTH_SECRET
+    });
+  }
+
+  // Handle auth routes
+  if (event.url.pathname.startsWith('/api/auth')) {
+    return getAuth().handler(event.request);
+  }
+
+  // ... rest of request handling
+};
+```
+
+---
+
+## Payments Architecture (Polar.sh)
+
+### Why Direct SDK Integration
+
+The `@polar-sh/better-auth` plugin uses `module.createRequire()` which is unavailable in Cloudflare Workers, even with `nodejs_compat`. Instead, we use direct SDK integration with `@polar-sh/sveltekit`.
+
+### Direct SDK Setup
+
+```typescript
+// src/routes/api/polar/checkout/+server.ts
+import { Checkout } from '@polar-sh/sveltekit';
+
+export const GET = Checkout({
+  accessToken: process.env.POLAR_ACCESS_TOKEN!,
+  successUrl: '/settings/billing/success?checkout_id={CHECKOUT_ID}',
+  server: 'production'
+});
+```
+
+```typescript
+// src/routes/api/polar/webhooks/+server.ts
+import { Webhooks } from '@polar-sh/sveltekit';
+
+export const POST = Webhooks({
+  webhookSecret: process.env.POLAR_WEBHOOK_SECRET!,
+  onOrderPaid: async (payload) => {
+    const userId = payload.data.customer.externalId;
+    // Update user subscription in D1
+  },
+  onSubscriptionCanceled: async (payload) => {
+    // Handle cancellation
+  }
+});
+```
+
+### Linking Polar to Better Auth Users
+
+Use `external_customer_id` set to the Better Auth user ID when creating checkouts. Query subscription status via:
+
+```typescript
+import { Polar } from '@polar-sh/sdk';
+
+const polar = new Polar({ accessToken: env.POLAR_ACCESS_TOKEN });
+const customer = await polar.customers.getStateExternal({
+  externalId: userId
+});
+```
 
 ---
 
