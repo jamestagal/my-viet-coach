@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onDestroy } from 'svelte';
-	import { Mic, MicOff, Phone, PhoneOff, BookOpen, Sparkles, Volume2, VolumeX, MessageCircle, GraduationCap, RefreshCw, X, Check, Loader2, Save } from 'lucide-svelte';
+	import { Mic, MicOff, Phone, PhoneOff, BookOpen, Sparkles, Volume2, VolumeX, MessageCircle, GraduationCap, RefreshCw, X, Check, Loader2, Save, Zap } from 'lucide-svelte';
 	import {
 		VoiceClient,
 		type VoiceProvider,
@@ -69,6 +69,7 @@
 	let fallbackReason = $state('');
 	let showSessionWarning = $state(false);
 	let sessionWarningSeconds = $state(0);
+	let disconnectReason = $state(''); // Track why session disconnected
 
 	// Client instance
 	let client: VoiceClient | null = null;
@@ -132,25 +133,32 @@
 		}
 	}
 
-	// Connect to voice session
-	async function startSession() {
+	// Connect to voice session (with optional provider override)
+	async function startSession(forceProvider?: 'gemini' | 'openai') {
 		connectionState = 'connecting';
 		errorMessage = '';
-		conversationHistory = [];
+		// Only reset history if this is a fresh session, not a reconnect
+		if (!forceProvider) {
+			conversationHistory = [];
+			sessionTranscript = [];
+			sessionId = crypto.randomUUID();
+		}
 		streamingCoachText = '';
 		streamingUserText = '';
-		sessionTranscript = [];
-		sessionId = crypto.randomUUID();
 		// Reset provider state
 		activeProvider = null;
 		showFallbackNotice = false;
 		fallbackReason = '';
 		showSessionWarning = false;
+		disconnectReason = '';
 
 		try {
 			const config = getConfigForMode(selectedMode);
 
-			// Create VoiceClient with Gemini as primary, OpenAI as fallback
+			// Create VoiceClient - use forceProvider if specified, otherwise Gemini primary with OpenAI fallback
+			const primaryProvider = forceProvider || 'gemini';
+			const fallbackProvider = forceProvider ? null : 'openai'; // No fallback when forcing a specific provider
+
 			client = new VoiceClient(
 				{
 					systemPrompt: config.instructions,
@@ -163,6 +171,8 @@
 						connectionState = 'connected';
 					},
 					onDisconnected: (reason) => {
+						console.log('[Practice] Session disconnected:', reason);
+						disconnectReason = reason;
 						connectionState = 'disconnected';
 					},
 					onUserTranscript: (text) => {
@@ -228,8 +238,8 @@
 						sessionWarningSeconds = remainingSeconds;
 					},
 				},
-				'gemini', // Primary provider
-				'openai'  // Fallback provider
+				primaryProvider,
+				fallbackProvider
 			);
 
 			await client.connect();
@@ -531,7 +541,59 @@
 			</div>
 		</div>
 
-	{:else}
+	{:else if connectionState === 'disconnected' && conversationHistory.length > 0 && !showSummaryModal}
+		<!-- Disconnected State (mid-session) - offer reconnect -->
+		<div class="flex-1 flex items-center justify-center px-4">
+			<div class="text-center animate-fade-in max-w-md">
+				<div class="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-500/10 flex items-center justify-center">
+					<PhoneOff class="w-10 h-10 text-amber-500" />
+				</div>
+				<h2 class="text-2xl text-foreground mb-2">Kết nối bị gián đoạn</h2>
+				<p class="text-muted-foreground mb-2">Connection interrupted</p>
+				{#if disconnectReason}
+					<p class="text-sm text-muted-foreground/70 mb-6 bg-muted/50 rounded-lg px-3 py-2">
+						{disconnectReason}
+					</p>
+				{/if}
+				<div class="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
+					<button
+						onclick={() => startSession()}
+						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all"
+					>
+						<RefreshCw class="w-5 h-5" />
+						<span>Reconnect</span>
+					</button>
+					<button
+						onclick={() => startSession('openai')}
+						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all"
+					>
+						<Zap class="w-5 h-5" />
+						<span>Try OpenAI</span>
+					</button>
+					<button
+						onclick={() => {
+							if (selectedMode === 'coach' && sessionTranscript.length > 0) {
+								showSummaryModal = true;
+								extractCorrections();
+							} else {
+								resetSession();
+							}
+						}}
+						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-muted text-muted-foreground rounded-xl hover:bg-muted/80 transition-all"
+					>
+						<X class="w-5 h-5" />
+						<span>End Session</span>
+					</button>
+				</div>
+				{#if conversationHistory.length > 0}
+					<p class="text-xs text-muted-foreground mt-4">
+						{conversationHistory.length} messages in this session
+					</p>
+				{/if}
+			</div>
+		</div>
+
+	{:else if connectionState === 'connected' || (connectionState === 'disconnected' && showSummaryModal)}
 		<!-- Active Voice Session -->
 		<div class="flex-1 flex flex-col min-h-0 overflow-hidden">
 			<!-- Session Header -->

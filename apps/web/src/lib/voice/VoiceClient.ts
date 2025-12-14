@@ -154,13 +154,32 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
             this.events.onConnected('gemini');
           },
           onclose: (e: any) => {
-            console.log('[Gemini] WebSocket closed:', e);
+            // Enhanced logging to diagnose disconnection issues
+            console.log('[Gemini] WebSocket closed:', {
+              code: e?.code,
+              reason: e?.reason,
+              wasClean: e?.wasClean,
+              event: e,
+            });
             this._isConnected = false;
             this.stopMicrophoneCapture();
-            this.events.onDisconnected(e?.reason || 'Connection closed');
+
+            // Provide more descriptive reason for debugging
+            const closeReason = e?.reason
+              || (e?.code === 1000 ? 'Normal closure'
+                : e?.code === 1006 ? 'Abnormal closure (network issue or server timeout)'
+                : e?.code === 1001 ? 'Going away (page navigation or server shutdown)'
+                : e?.code === 1011 ? 'Server error'
+                : `Connection closed (code: ${e?.code || 'unknown'})`);
+
+            this.events.onDisconnected(closeReason);
           },
           onerror: (e: any) => {
-            console.error('[Gemini] WebSocket error:', e);
+            console.error('[Gemini] WebSocket error:', {
+              message: e?.message,
+              type: e?.type,
+              error: e,
+            });
             this._isConnected = false;
             this.events.onError(new Error(e?.message || 'Connection error'), 'gemini');
           },

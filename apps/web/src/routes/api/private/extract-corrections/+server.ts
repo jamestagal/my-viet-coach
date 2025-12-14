@@ -1,6 +1,6 @@
 import { json, error } from '@sveltejs/kit';
 import type { RequestHandler } from './$types';
-import { OPENAI_API_KEY } from '$env/static/private';
+import { GOOGLE_API_KEY } from '$env/static/private';
 
 interface TranscriptMessage {
 	role: 'user' | 'coach';
@@ -24,15 +24,15 @@ interface ExtractCorrectionsRequest {
 /**
  * POST /api/private/extract-corrections
  *
- * Extracts corrections from a voice coaching session transcript using GPT-4o-mini.
+ * Extracts corrections from a voice coaching session transcript using Gemini.
  *
  * Protected by hooks.server.ts - only authenticated users can access.
  */
 export const POST: RequestHandler = async ({ request }) => {
 	// Auth is enforced in hooks.server.ts for /api/private/* routes
 
-	if (!OPENAI_API_KEY) {
-		throw error(500, 'OpenAI API key not configured');
+	if (!GOOGLE_API_KEY) {
+		throw error(500, 'Google API key not configured');
 	}
 
 	try {
@@ -80,31 +80,36 @@ ${formattedTranscript}
 
 Extract all corrections from this session. Return only the JSON array, no other text.`;
 
-		const response = await fetch('https://api.openai.com/v1/chat/completions', {
+		// Use Gemini REST API for text generation
+		const geminiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GOOGLE_API_KEY}`;
+
+		const response = await fetch(geminiUrl, {
 			method: 'POST',
 			headers: {
-				Authorization: `Bearer ${OPENAI_API_KEY}`,
 				'Content-Type': 'application/json'
 			},
 			body: JSON.stringify({
-				model: 'gpt-4o-mini',
-				messages: [
-					{ role: 'system', content: systemPrompt },
-					{ role: 'user', content: userPrompt }
+				contents: [
+					{
+						role: 'user',
+						parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }]
+					}
 				],
-				temperature: 0.3,
-				response_format: { type: 'json_object' }
+				generationConfig: {
+					temperature: 0.3,
+					responseMimeType: 'application/json'
+				}
 			})
 		});
 
 		if (!response.ok) {
 			const errorData = await response.json().catch(() => ({}));
-			console.error('OpenAI error:', errorData);
+			console.error('Gemini error:', errorData);
 			throw error(response.status, errorData.error?.message || 'Failed to extract corrections');
 		}
 
 		const data = await response.json();
-		const content = data.choices?.[0]?.message?.content;
+		const content = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
 		if (!content) {
 			return json({ corrections: [] });
