@@ -2,7 +2,10 @@
 	import { onDestroy } from 'svelte';
 	import { Mic, MicOff, Phone, PhoneOff, BookOpen, Sparkles, Volume2, VolumeX, MessageCircle, GraduationCap, RefreshCw, X, Check, Loader2, Save } from 'lucide-svelte';
 	import {
-		RealtimeClient,
+		VoiceClient,
+		type VoiceProvider,
+	} from '$lib/voice/VoiceClient';
+	import {
 		createFreeConversationConfig,
 		createCoachModeConfig,
 		type PracticeMode,
@@ -60,8 +63,15 @@
 	// Auto-scroll ref
 	let conversationContainer: HTMLDivElement | null = $state(null);
 
+	// Provider tracking (Gemini primary, OpenAI fallback)
+	let activeProvider = $state<VoiceProvider | null>(null);
+	let showFallbackNotice = $state(false);
+	let fallbackReason = $state('');
+	let showSessionWarning = $state(false);
+	let sessionWarningSeconds = $state(0);
+
 	// Client instance
-	let client: RealtimeClient | null = null;
+	let client: VoiceClient | null = null;
 
 	// Available topics with Vietnamese cultural icons
 	const topics: Topic[] = [
@@ -131,78 +141,98 @@
 		streamingUserText = '';
 		sessionTranscript = [];
 		sessionId = crypto.randomUUID();
+		// Reset provider state
+		activeProvider = null;
+		showFallbackNotice = false;
+		fallbackReason = '';
+		showSessionWarning = false;
 
 		try {
 			const config = getConfigForMode(selectedMode);
 
-			client = new RealtimeClient({
-				onUserTranscript: (text) => {
-					// User transcript comes as final text from Whisper
-					if (text.trim()) {
-						// Add to visible conversation history
-						conversationHistory = [...conversationHistory, {
-							role: 'user',
-							text: text.trim(),
-							timestamp: Date.now()
-						}];
-						// Add to session transcript for summary
-						sessionTranscript = [...sessionTranscript, {
-							role: 'user',
-							text: text.trim(),
-							timestamp: Date.now()
-						}];
-						streamingUserText = ''; // Clear any streaming state
-						scrollToBottom();
-					}
+			// Create VoiceClient with Gemini as primary, OpenAI as fallback
+			client = new VoiceClient(
+				{
+					systemPrompt: config.instructions,
+					voice: selectedMode === 'coach' ? 'Kore' : 'Puck', // Gemini voices
+					language: 'vi',
 				},
-				onCoachResponse: (text, isFinal) => {
-					if (isFinal) {
-						// Final response - add to history and clear streaming
-						// Use the longer of: final text or what we were streaming
-						const finalText = text.length >= streamingCoachText.length ? text : streamingCoachText;
-						if (finalText.trim()) {
+				{
+					onConnected: (provider) => {
+						activeProvider = provider;
+						connectionState = 'connected';
+					},
+					onDisconnected: (reason) => {
+						connectionState = 'disconnected';
+					},
+					onUserTranscript: (text) => {
+						if (text.trim()) {
 							conversationHistory = [...conversationHistory, {
-								role: 'coach',
-								text: finalText.trim(),
+								role: 'user',
+								text: text.trim(),
 								timestamp: Date.now()
 							}];
 							sessionTranscript = [...sessionTranscript, {
-								role: 'coach',
-								text: finalText.trim(),
+								role: 'user',
+								text: text.trim(),
 								timestamp: Date.now()
 							}];
+							streamingUserText = '';
+							scrollToBottom();
 						}
-						streamingCoachText = '';
+					},
+					onUserTranscriptStreaming: (text) => {
+						// Real-time display while user is speaking (not finalized yet)
+						streamingUserText = text;
 						scrollToBottom();
-					} else {
-						// Streaming delta - update streaming text
-						streamingCoachText = text;
-						scrollToBottom();
-					}
-				},
-				onCoachAudioStart: () => {
-					isCoachSpeaking = true;
-					streamingCoachText = '';
-				},
-				onCoachAudioEnd: () => {
-					isCoachSpeaking = false;
-				},
-				onConnectionStateChange: (state) => {
-					if (state === 'connected') {
-						connectionState = 'connected';
-					} else if (state === 'disconnected') {
-						connectionState = 'disconnected';
-					} else if (state === 'error') {
+					},
+					onCoachResponse: (text, isFinal) => {
+						if (isFinal) {
+							const finalText = text.length >= streamingCoachText.length ? text : streamingCoachText;
+							if (finalText.trim()) {
+								conversationHistory = [...conversationHistory, {
+									role: 'coach',
+									text: finalText.trim(),
+									timestamp: Date.now()
+								}];
+								sessionTranscript = [...sessionTranscript, {
+									role: 'coach',
+									text: finalText.trim(),
+									timestamp: Date.now()
+								}];
+							}
+							streamingCoachText = '';
+							isCoachSpeaking = false;
+							scrollToBottom();
+						} else {
+							streamingCoachText = text;
+							isCoachSpeaking = true;
+							scrollToBottom();
+						}
+					},
+					onCoachAudio: (audioData) => {
+						// Audio playback handled by providers (WebRTC for OpenAI, need audio context for Gemini)
+						isCoachSpeaking = true;
+					},
+					onError: (error, provider) => {
+						errorMessage = `${provider}: ${error.message}`;
 						connectionState = 'error';
-					}
+					},
+					onProviderFallback: (from, to, reason) => {
+						showFallbackNotice = true;
+						fallbackReason = reason;
+						console.warn(`Switched from ${from} to ${to}: ${reason}`);
+					},
+					onSessionTimeWarning: (remainingSeconds) => {
+						showSessionWarning = true;
+						sessionWarningSeconds = remainingSeconds;
+					},
 				},
-				onError: (error) => {
-					errorMessage = error.message;
-					connectionState = 'error';
-				}
-			});
+				'gemini', // Primary provider
+				'openai'  // Fallback provider
+			);
 
-			await client.connect(config);
+			await client.connect();
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Failed to connect';
 			connectionState = 'error';
@@ -297,23 +327,35 @@
 
 	// Toggle mute
 	function toggleMute() {
-		if (client) {
-			isMuted = !isMuted;
-			client.setMuted(isMuted);
+		isMuted = !isMuted;
+		// Note: VoiceClient doesn't have setMuted yet - would need to implement
+	}
+
+	// Handle Gemini 15-minute session limit
+	async function extendSession() {
+		if (!client) return;
+		showSessionWarning = false;
+
+		try {
+			await client.reconnect();
+		} catch (err) {
+			errorMessage = 'Failed to extend session';
 		}
 	}
 
-	// Switch mode mid-session
+	// Switch mode mid-session (requires reconnect with new config)
 	async function switchMode() {
 		if (!client || isSwitchingMode) return;
 
 		isSwitchingMode = true;
 		const newMode: PracticeMode = selectedMode === 'free' ? 'coach' : 'free';
-		const newConfig = getConfigForMode(newMode);
 
 		try {
-			client.updateSessionConfig({ instructions: newConfig.instructions });
+			// Disconnect current session
+			client.disconnect();
 			selectedMode = newMode;
+			// Start new session with updated mode
+			await startSession();
 		} catch (err) {
 			errorMessage = 'Failed to switch mode';
 		} finally {
@@ -506,6 +548,19 @@
 					<span class="text-sm text-muted-foreground viet-text">
 						{topics.find(t => t.value === selectedTopic)?.label}
 					</span>
+					<!-- Provider badge -->
+					{#if activeProvider}
+						<span class="provider-badge {activeProvider}">
+							{#if activeProvider === 'gemini'}
+								Gemini
+							{:else}
+								OpenAI
+							{/if}
+							{#if showFallbackNotice}
+								<span class="text-xs opacity-70">(fallback)</span>
+							{/if}
+						</span>
+					{/if}
 				</div>
 				<div class="flex items-center gap-3">
 					<button
@@ -523,6 +578,34 @@
 					</div>
 				</div>
 			</div>
+
+			<!-- Fallback Notice Banner -->
+			{#if showFallbackNotice}
+				<div class="fallback-notice">
+					<span class="text-amber-600">⚠️</span>
+					<span>Using OpenAI as fallback. Reason: {fallbackReason}</span>
+					<button
+						onclick={() => showFallbackNotice = false}
+						class="ml-auto text-amber-600 hover:text-amber-800"
+					>
+						✕
+					</button>
+				</div>
+			{/if}
+
+			<!-- Session Warning Banner (Gemini 15-min limit) -->
+			{#if showSessionWarning}
+				<div class="session-warning">
+					<span>⏱️</span>
+					<span>Session ending in {sessionWarningSeconds}s</span>
+					<button
+						onclick={extendSession}
+						class="btn-small"
+					>
+						Extend Session
+					</button>
+				</div>
+			{/if}
 
 			<!-- Voice Interface -->
 			<div class="flex-1 flex flex-col px-4 py-4 min-h-0">
@@ -583,6 +666,17 @@
 								<p class="viet-text text-base leading-relaxed">{message.text}</p>
 							</div>
 						{/each}
+
+						<!-- Streaming user speech (in-progress, not finalized yet) -->
+						{#if streamingUserText}
+							<div class="transcript-card user streaming animate-slide-up">
+								<span class="transcript-label flex items-center gap-2">
+									You
+									<span class="streaming-indicator"></span>
+								</span>
+								<p class="viet-text text-base leading-relaxed">{streamingUserText}</p>
+							</div>
+						{/if}
 
 						<!-- Streaming coach response (in-progress) -->
 						{#if streamingCoachText}
@@ -1302,5 +1396,65 @@
 	.transcript-card.streaming {
 		border-style: dashed;
 		background: hsl(var(--accent) / 0.03);
+	}
+
+	/* Provider Badge */
+	.provider-badge {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.25rem;
+		padding: 0.25rem 0.625rem;
+		border-radius: 999px;
+		font-size: 0.75rem;
+		font-weight: 500;
+	}
+
+	.provider-badge.gemini {
+		background: hsl(217 91% 60% / 0.15);
+		color: hsl(217 91% 50%);
+	}
+
+	.provider-badge.openai {
+		background: hsl(142 71% 45% / 0.15);
+		color: hsl(142 71% 35%);
+	}
+
+	/* Fallback Notice */
+	.fallback-notice {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		background: hsl(45 93% 47% / 0.1);
+		border-bottom: 1px solid hsl(45 93% 47% / 0.2);
+		font-size: 0.875rem;
+		color: hsl(45 93% 30%);
+	}
+
+	/* Session Warning */
+	.session-warning {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		background: hsl(25 95% 53% / 0.1);
+		border-bottom: 1px solid hsl(25 95% 53% / 0.2);
+		font-size: 0.875rem;
+		color: hsl(25 95% 35%);
+	}
+
+	.btn-small {
+		padding: 0.25rem 0.75rem;
+		background: hsl(var(--primary));
+		color: white;
+		border-radius: 0.375rem;
+		font-size: 0.75rem;
+		font-weight: 500;
+		cursor: pointer;
+		transition: background 0.2s ease;
+	}
+
+	.btn-small:hover {
+		background: hsl(var(--primary) / 0.9);
 	}
 </style>
