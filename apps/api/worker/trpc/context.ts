@@ -1,5 +1,7 @@
 export interface Env {
   ANTHROPIC_API_KEY: string;
+  GOOGLE_API_KEY: string;
+  OPENAI_API_KEY: string;
   // Add other env bindings here as needed
   // DB: D1Database;
 }
