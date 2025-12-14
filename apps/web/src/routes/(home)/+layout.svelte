@@ -39,7 +39,7 @@
         <div class="flex flex-row items-center gap-3">
             <a href="/" class="flex items-center gap-2 group">
                 <VietLogo class="transition-transform group-hover:scale-105" size={36} />
-                <span class="font-semibold text-lg">{PUBLIC_APP_NAME}</span>
+                <span class="font-semibold text-lg text-vermillion">{PUBLIC_APP_NAME}</span>
             </a>
         </div>
 

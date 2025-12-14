@@ -178,7 +178,7 @@
 	.logo-text {
 		font-weight: 600;
 		font-size: 1.125rem;
-		color: hsl(var(--foreground));
+		color: hsl(var(--viet-vermillion));
 	}
 
 	/* Main Body with Sidebar */
@@ -255,10 +255,6 @@
 	@media (max-width: 768px) {
 		.app-topbar {
 			padding: 0 0.75rem;
-		}
-
-		.logo-text {
-			display: none;
 		}
 
 		.app-content {

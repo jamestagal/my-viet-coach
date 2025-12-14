@@ -23,14 +23,14 @@
 	];
 
 	$effect(() => {
-		const welcome = $page.url.searchParams.get('welcome');
+		const welcome = page.url.searchParams.get('welcome');
 		if (welcome === 'true') {
 			setTimeout(() => {
 				toast.success('Chào mừng bạn! Welcome aboard!');
 			}, 1200);
 		}
-		if ($page.url.searchParams.get('toastError')) {
-			toast.error($page.url.searchParams.get('toastError'));
+		if (page.url.searchParams.get('toastError')) {
+			toast.error(page.url.searchParams.get('toastError'));
 		}
 	});
 </script>

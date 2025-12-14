@@ -16,7 +16,7 @@
 			<div class="flex items-center gap-6">
 				<a href="/" class="flex items-center space-x-2 group">
 					<VietLogo class="transition-transform group-hover:scale-105" size={44} />
-					<span class="font-semibold text-lg inline-block">{PUBLIC_PROJECT_NAME}</span>
+					<span class="font-semibold text-lg inline-block text-vermillion">{PUBLIC_PROJECT_NAME}</span>
 				</a>
 				<nav class="hidden md:flex items-center gap-1">
 					<a
