@@ -38,22 +38,51 @@ export interface ModeOptions {
 }
 
 // Difficulty-specific instructions shared between modes
+// Note: Gemini Live API doesn't have explicit speech rate parameters,
+// so we rely on prompt instructions to control pacing
 const difficultyInstructions = {
 	beginner: `
-- Use simple vocabulary and short sentences
-- Speak slowly and clearly
-- Provide English translations for key phrases
-- Focus on basic greetings and everyday expressions`,
+## Speech Style for Beginners - VERY IMPORTANT
+- Speak SLOWLY and CLEARLY - pause between phrases
+- Use short sentences (3-5 words maximum)
+- Pronounce each syllable distinctly with clear tones
+- Add natural pauses after each sentence to let learner process
+- Repeat key vocabulary naturally in conversation
+
+## Content Guidelines
+- Use simple, high-frequency vocabulary only
+- Provide English translations for ALL new phrases
+- Focus on basic greetings, numbers, and everyday expressions
+- Use concrete nouns and simple verbs
+- Avoid idioms, slang, or regional expressions`,
+
 	intermediate: `
+## Speech Style for Intermediate Learners
+- Speak at a moderate, conversational pace
+- Use natural sentence length (5-10 words)
+- Clear pronunciation but natural flow
+- Brief pauses at sentence boundaries
+
+## Content Guidelines
 - Use natural conversational Vietnamese
-- Mix complexity levels based on user responses
-- Provide English explanations only when correcting
-- Introduce common idioms and expressions`,
+- Mix complexity based on learner's responses
+- Provide English explanations only when correcting errors
+- Introduce common idioms and expressions gradually
+- Include some compound sentences and connectors`,
+
 	advanced: `
+## Speech Style for Advanced Learners
+- Speak at natural native speed
+- Use complex sentence structures freely
+- Include natural speech patterns (contractions, ellipsis)
+- Minimal pauses - flowing conversation
+
+## Content Guidelines
 - Use natural, fluent Vietnamese with regional expressions
-- Minimal English - only for complex grammar explanations
+- Minimal English - only for complex grammar points
 - Include proverbs, idioms, and cultural references
-- Challenge the learner with nuanced vocabulary`
+- Challenge with nuanced vocabulary and formal/informal registers
+- Discuss abstract topics and express complex opinions`
 };
 
 /**
@@ -96,6 +125,11 @@ ${difficultyInstructions[options.difficulty]}
 - Keep responses to 2-4 sentences maximum
 - Ask follow-up questions to maintain conversation flow
 - Pause naturally to let the learner respond
+
+# Adapting to User Requests
+- If user asks you to "slow down", "speak slower", "nói chậm hơn" - acknowledge and speak MORE SLOWLY with longer pauses
+- If user asks to "repeat", "lặp lại" - repeat the last phrase slowly and clearly
+- If user seems confused, simplify your language and slow down
 
 # Starting the Session
 - Greet warmly in Vietnamese (casual, not formal)
@@ -154,6 +188,11 @@ ${difficultyInstructions[options.difficulty]}
 - Keep responses to 2-4 sentences maximum
 - Ask follow-up questions to maintain conversation flow
 - Pause naturally to let the learner respond
+
+# Adapting to User Requests
+- If user asks you to "slow down", "speak slower", "nói chậm hơn" - acknowledge and speak MORE SLOWLY with longer pauses
+- If user asks to "repeat", "lặp lại" - repeat the last phrase slowly and clearly
+- If user seems confused, simplify your language and slow down
 
 # Starting the Session
 - Greet warmly in Vietnamese
