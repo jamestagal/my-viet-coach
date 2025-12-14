@@ -8,6 +8,11 @@ import { dev } from '$app/environment';
 import { getDb } from './database/db';
 // import { polarClient, handleWebhook } from './utils/polar';
 import { PUBLIC_PROJECT_NAME, PUBLIC_ORIGIN } from '$env/static/public';
+import {
+	GOOGLE_CLIENT_ID,
+	GOOGLE_CLIENT_SECRET,
+	BETTER_AUTH_SECRET
+} from '$env/static/private';
 import { send } from './email/email';
 
 /**
@@ -54,15 +59,15 @@ export function setAuthEnv(env: {
 }
 
 function createAuth() {
-	// In dev, use static imports; in production, use cached env from platform
+	// In dev, use static imports from $env/static/private; in production, use cached env from platform
 	const googleClientId = dev
-		? (import.meta.env.GOOGLE_CLIENT_ID as string)
+		? GOOGLE_CLIENT_ID
 		: cachedEnv?.GOOGLE_CLIENT_ID;
 	const googleClientSecret = dev
-		? (import.meta.env.GOOGLE_CLIENT_SECRET as string)
+		? GOOGLE_CLIENT_SECRET
 		: cachedEnv?.GOOGLE_CLIENT_SECRET;
 	const secret = dev
-		? (import.meta.env.BETTER_AUTH_SECRET as string)
+		? BETTER_AUTH_SECRET
 		: cachedEnv?.BETTER_AUTH_SECRET;
 
 	console.log('[Auth] Creating auth with:', {
