@@ -17,7 +17,8 @@ PUBLIC_DEFAULT_TITLE = "Speak Phở Real - Learn Vietnamese Through Conversation
 PUBLIC_DEFAULT_DESCRIPTION = "Practice speaking Vietnamese with an AI tutor that adapts to your level. Natural conversations, gentle corrections, and cultural context."
 
 # Environment variables that need to be set in Cloudflare dashboard:
-# - OPENAI_API_KEY
+# - OPENAI_API_KEY (for OpenAI Realtime API fallback)
+# - GOOGLE_API_KEY (for Gemini Live API - primary voice provider)
 # - GOOGLE_CLIENT_ID
 # - GOOGLE_CLIENT_SECRET
 # - POSTMARK_SERVER_TOKEN
