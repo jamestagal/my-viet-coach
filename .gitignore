@@ -84,7 +84,3 @@ temp/
 
 # Editor directories and files
 .vscode/
-
-# Documentation (local notes)
-docs/
-agent-os/
