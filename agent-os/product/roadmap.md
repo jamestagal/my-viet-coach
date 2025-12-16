@@ -22,13 +22,13 @@ The following features are already implemented:
 
 ## Roadmap
 
-1. [ ] **Durable Objects Usage Tracking** - Implement Cloudflare Durable Objects for real-time credit verification before voice sessions, with zero-latency checks and async D1 sync. `L`
+1. [x] **Durable Objects Usage Tracking** - Implement Cloudflare Durable Objects for real-time credit verification before voice sessions, with zero-latency checks and async D1 sync. `L`
 
-2. [ ] **Usage Display & Limits UI** - Add usage status component showing remaining minutes, progress bar, low-credit warnings, and upgrade prompts when credits exhausted. `S`
+2. [x] **Usage Display & Limits UI** - Add usage status component showing remaining minutes, progress bar, low-credit warnings, and upgrade prompts when credits exhausted. `S`
 
-3. [ ] **Session Heartbeat & Live Tracking** - Implement periodic heartbeat during active sessions to update usage in real-time and auto-end sessions when limits are reached. `M`
+3. [x] **Session Heartbeat & Live Tracking** - Implement periodic heartbeat during active sessions to update usage in real-time and auto-end sessions when limits are reached. `M`
 
-4. [ ] **Polar Webhook DO Integration** - Connect Polar.sh subscription webhooks to Durable Objects for instant plan upgrades/downgrades without database round-trips. `M`
+4. [x] **Polar Webhook DO Integration** - Connect Polar.sh subscription webhooks to Durable Objects for instant plan upgrades/downgrades without database round-trips. `M`
 
 5. [ ] **Extended Session Tracking** - Add provider tracking, disconnect codes, session modes, and message counts to usage_sessions table for admin visibility. `S`
 

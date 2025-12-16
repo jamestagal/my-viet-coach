@@ -24,7 +24,7 @@ import { send } from './email/email';
 const ALLOWED_EMAILS: string[] = [
 	// Add your email here
 	'benjaminjameswaller@gmail.com',
-	// 'betatester@example.com',
+	'benjaminwaller@hotmail.com',
 ];
 
 /**
@@ -92,7 +92,7 @@ function createAuth() {
 		// Trust Cloudflare Pages preview deployments and custom domain
 		trustedOrigins: dev
 			? ['http://localhost:5173']
-			: [PUBLIC_ORIGIN, 'https://*.speakphoreal.pages.dev', 'https://speakphoreal.com'],
+			: [PUBLIC_ORIGIN, 'https://*.speakphoreal.pages.dev', 'https://*.noi-hay.pages.dev', 'https://speakphoreal.com'],
 
 		database: drizzleAdapter(getDb(), {
 			provider: 'sqlite'

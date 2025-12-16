@@ -21,9 +21,7 @@ PUBLIC_DEFAULT_DESCRIPTION = "Practice speaking Vietnamese with an AI tutor that
 # - GOOGLE_API_KEY (for Gemini Live API - primary voice provider)
 # - GOOGLE_CLIENT_ID
 # - GOOGLE_CLIENT_SECRET
-# - POSTMARK_SERVER_TOKEN
-# - FROM_EMAIL
-# - STRIPE_SECRET_KEY
-# - STRIPE_WEBHOOK_SECRET
+# - BETTER_AUTH_SECRET
+# - RESEND_API_KEY (for email delivery)
+# - FROM_EMAIL (sender email address)
 # - PUBLIC_ORIGIN
-# - PUBLIC_POSTHOG_KEY

@@ -10,5 +10,33 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": {
     "enabled": true
-  }
+  },
+
+  // D1 Database binding (same database as web app)
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "noi-hay-db",
+      "database_id": "1b0a331d-eb7c-4835-96cd-e50f3a7f7a41"
+    }
+  ],
+
+  // Durable Objects for real-time usage tracking
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "USER_USAGE",
+        "class_name": "UserUsageObject"
+      }
+    ]
+  },
+
+  // Durable Object migrations
+  // Note: Free plan requires new_sqlite_classes instead of new_classes
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["UserUsageObject"]
+    }
+  ]
 }

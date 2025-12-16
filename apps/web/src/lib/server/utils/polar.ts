@@ -5,6 +5,10 @@ import { getDb } from '$lib/server/database/db';
 import { subscription, product } from '$lib/server/database/schema';
 import { eq, and } from 'drizzle-orm';
 
+// ============================================================================
+// POLAR CLIENT INITIALIZATION
+// ============================================================================
+
 // Lazy-initialized Polar client to prevent crashes when env vars are missing
 let _polarClient: Polar | null = null;
 
@@ -29,6 +33,10 @@ export const polarClient = {
 	get checkouts() { return getPolarClient().checkouts; },
 	get orders() { return getPolarClient().orders; }
 } as unknown as Polar;
+
+// ============================================================================
+// TYPE DEFINITIONS
+// ============================================================================
 
 // Type for subscription webhook event
 interface SubscriptionWebhookEvent {
@@ -56,6 +64,141 @@ interface ProductWebhookEvent {
 	data: PolarProduct;
 }
 
+// Type definitions for Polar product mapping
+interface PolarPrice {
+	isArchived?: boolean;
+	amountType: string;
+	type: string;
+	recurringInterval?: string;
+	priceAmount?: number;
+	unitAmount?: number;
+	meter?: {
+		name?: string;
+	};
+}
+
+interface PolarProduct {
+	id: string;
+	name: string;
+	description?: string;
+	isArchived?: boolean;
+	prices?: PolarPrice[];
+	metadata?: {
+		plan?: string;
+	};
+}
+
+interface MappedPrice {
+	amountType: string;
+	interval: string | null;
+	name?: string;
+	amount: number;
+}
+
+interface MappedProduct {
+	name: string;
+	description?: string;
+	plan?: string;
+	productId: string;
+	active: boolean;
+	prices: MappedPrice[];
+}
+
+// ============================================================================
+// PLAN MAPPING UTILITIES (Task 4.3)
+// ============================================================================
+
+/**
+ * Usage plan types that map to Durable Object plans
+ */
+export type UsagePlanType = 'free' | 'basic' | 'pro';
+
+/**
+ * Map Polar product metadata.plan to usage plan types.
+ * Includes aliases for common plan naming variations.
+ */
+export const PLAN_MAPPING: Record<string, UsagePlanType> = {
+	'free': 'free',
+	'basic': 'basic',
+	'starter': 'basic',     // Alias
+	'pro': 'pro',
+	'premium': 'pro',       // Alias
+	'enterprise': 'pro',    // Treat enterprise as pro for usage limits
+};
+
+/**
+ * Convert a Polar plan name to a usage plan type.
+ * Returns 'free' for unknown or missing plans.
+ */
+export function mapPolarPlanToUsagePlan(polarPlan: string | null | undefined): UsagePlanType {
+	if (!polarPlan) return 'free';
+	return PLAN_MAPPING[polarPlan.toLowerCase()] ?? 'free';
+}
+
+// ============================================================================
+// DURABLE OBJECT INTEGRATION (Task 4.4)
+// ============================================================================
+
+/**
+ * Update the UserUsageObject when a subscription changes.
+ * This ensures real-time plan enforcement without database lookups.
+ *
+ * Uses an internal API endpoint because:
+ * - SvelteKit Pages and Durable Objects live in separate workers
+ * - Cross-worker communication requires HTTP or service bindings
+ *
+ * @param env - Platform environment with API_URL and INTERNAL_API_SECRET
+ * @param userId - The user's ID to update
+ * @param plan - The new usage plan type
+ * @param action - The type of change: upgrade, downgrade, or cancel
+ */
+export async function updateUserUsageDO(
+	env: App.Platform['env'] | undefined,
+	userId: string,
+	plan: UsagePlanType,
+	action: 'upgrade' | 'downgrade' | 'cancel'
+): Promise<void> {
+	if (!env) {
+		console.warn('[Polar->DO] Platform env not available, skipping DO update');
+		return;
+	}
+
+	try {
+		// Get API URL from env or use production default
+		const apiUrl = env.API_URL || 'https://viet-coach-api.benjaminwaller.workers.dev';
+		const internalSecret = env.INTERNAL_API_SECRET;
+
+		if (!internalSecret) {
+			console.warn('[Polar->DO] INTERNAL_API_SECRET not configured, skipping DO update');
+			return;
+		}
+
+		const response = await fetch(`${apiUrl}/api/internal/update-plan`, {
+			method: 'POST',
+			headers: {
+				'Content-Type': 'application/json',
+				'X-Internal-Secret': internalSecret,
+			},
+			body: JSON.stringify({ userId, plan, action }),
+		});
+
+		if (!response.ok) {
+			const errorText = await response.text();
+			console.error('[Polar->DO] API call failed:', response.status, errorText);
+		} else {
+			const result = await response.json();
+			console.log(`[Polar->DO] Updated user ${userId} to ${plan} plan via API`, result);
+		}
+	} catch (error) {
+		// Log error but don't throw - DO update is secondary to D1 update
+		console.error('[Polar->DO] Error calling API:', error);
+	}
+}
+
+// ============================================================================
+// WEBHOOK HANDLERS
+// ============================================================================
+
 export const handleWebhook = {
 	/**
 	 * Handle one-time purchases (lifetime plans)
@@ -71,9 +214,11 @@ export const handleWebhook = {
 
 	/**
 	 * Handle subscription created/updated/canceled
-	 * This saves the subscription to the local D1 database
+	 * This saves the subscription to the local D1 database and updates the Durable Object.
+	 *
+	 * Task 4.5: Modified to accept optional platform parameter for DO updates
 	 */
-	onSubscriptionUpdated: async (event: unknown) => {
+	onSubscriptionUpdated: async (event: unknown, platform?: App.Platform) => {
 		try {
 			const webhookEvent = event as SubscriptionWebhookEvent;
 
@@ -122,6 +267,31 @@ export const handleWebhook = {
 					polarProductId
 				);
 			}
+
+			// Map the product plan to usage plan type
+			const usagePlan = mapPolarPlanToUsagePlan(productData?.plan);
+
+			// ================================================================
+			// UPDATE DURABLE OBJECT (Task 4.5)
+			// This ensures real-time plan enforcement
+			// ================================================================
+
+			if (platform?.env) {
+				const isActive = status === 'active' || status === 'trialing';
+				const isCanceled = status === 'canceled' || status === 'incomplete_expired';
+
+				if (isActive) {
+					await updateUserUsageDO(platform.env, externalId, usagePlan, 'upgrade');
+				} else if (isCanceled) {
+					await updateUserUsageDO(platform.env, externalId, 'free', 'cancel');
+				}
+			} else {
+				console.warn('[webhook][subscription.updated] Platform not available, DO not updated');
+			}
+
+			// ================================================================
+			// UPDATE D1 DATABASE (existing logic)
+			// ================================================================
 
 			// Check if subscription already exists
 			const existingSubscription = await db
@@ -249,45 +419,9 @@ export const handleWebhook = {
 	}
 };
 
-// Type definitions for Polar product mapping
-interface PolarPrice {
-	isArchived?: boolean;
-	amountType: string;
-	type: string;
-	recurringInterval?: string;
-	priceAmount?: number;
-	unitAmount?: number;
-	meter?: {
-		name?: string;
-	};
-}
-
-interface PolarProduct {
-	id: string;
-	name: string;
-	description?: string;
-	isArchived?: boolean;
-	prices?: PolarPrice[];
-	metadata?: {
-		plan?: string;
-	};
-}
-
-interface MappedPrice {
-	amountType: string;
-	interval: string | null;
-	name?: string;
-	amount: number;
-}
-
-interface MappedProduct {
-	name: string;
-	description?: string;
-	plan?: string;
-	productId: string;
-	active: boolean;
-	prices: MappedPrice[];
-}
+// ============================================================================
+// HELPER FUNCTIONS
+// ============================================================================
 
 // Helper functions for mapping Polar data
 export const helpers = {

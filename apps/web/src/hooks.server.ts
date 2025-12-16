@@ -1,6 +1,7 @@
 import { svelteKitHandler } from 'better-auth/svelte-kit';
 import { initDb, initLocalDb, getDb } from '$lib/server/database/db';
 import { getAuth, setAuthEnv, isEmailAllowed } from '$lib/server/auth';
+import { setEmailEnv } from '$lib/server/email/email';
 import { dev } from '$app/environment';
 import { json } from '@sveltejs/kit';
 import type { Handle } from '@sveltejs/kit';
@@ -50,6 +51,12 @@ export const handle: Handle = async ({ event, resolve }) => {
 			GOOGLE_CLIENT_ID: env?.GOOGLE_CLIENT_ID as string,
 			GOOGLE_CLIENT_SECRET: env?.GOOGLE_CLIENT_SECRET as string,
 			BETTER_AUTH_SECRET: env?.BETTER_AUTH_SECRET as string
+		});
+
+		// Pass email credentials from Cloudflare env
+		setEmailEnv({
+			RESEND_API_KEY: env?.RESEND_API_KEY as string,
+			FROM_EMAIL: env?.FROM_EMAIL as string
 		});
 	}
 

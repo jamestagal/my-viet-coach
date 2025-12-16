@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { onDestroy } from 'svelte';
-	import { Mic, MicOff, Phone, PhoneOff, BookOpen, Sparkles, Volume2, VolumeX, MessageCircle, GraduationCap, RefreshCw, X, Check, Loader2, Save, Zap } from 'lucide-svelte';
+	import { onMount, onDestroy } from 'svelte';
+	import { Mic, MicOff, Phone, PhoneOff, BookOpen, Sparkles, Volume2, VolumeX, MessageCircle, GraduationCap, RefreshCw, X, Check, Loader2, Save, Zap, Lock } from 'lucide-svelte';
 	import {
 		VoiceClient,
 		type VoiceProvider,
@@ -11,6 +11,16 @@
 		type PracticeMode,
 		type ModeOptions
 	} from '$lib/voice/RealtimeClient';
+	import UsageBar from '$lib/components/UsageBar.svelte';
+	import UsageWarning from '$lib/components/UsageWarning.svelte';
+	import {
+		getUsageStatus,
+		startSession as startUsageSession,
+		sendHeartbeat,
+		endSession as endUsageSession,
+		hasNoCredits,
+		type UsageStatus
+	} from '$lib/services/usage';
 
 	// Types
 	type Topic = {
@@ -47,6 +57,23 @@
 	let errorMessage = $state('');
 	let isSwitchingMode = $state(false);
 
+	// Usage tracking state
+	let usageStatus = $state<UsageStatus>({
+		plan: 'free',
+		minutesUsed: 0,
+		minutesRemaining: 10,
+		minutesLimit: 10,
+		periodStart: '',
+		periodEnd: '',
+		hasActiveSession: false,
+		activeSessionMinutes: 0,
+		percentUsed: 0
+	});
+	let isLoadingUsage = $state(true);
+	let usageSessionId = $state<string | null>(null);
+	let heartbeatInterval: ReturnType<typeof setInterval> | null = null;
+	let showLowCreditWarning = $state(false);
+
 	// Conversation display - shows full history with streaming support
 	let conversationHistory = $state<TranscriptMessage[]>([]);
 	let streamingCoachText = $state(''); // Current streaming response (not yet finalized)
@@ -74,37 +101,40 @@
 	// Client instance
 	let client: VoiceClient | null = null;
 
+	// Derived values
+	let canStartSession = $derived(!hasNoCredits(usageStatus.minutesRemaining) && !isLoadingUsage);
+
 	// Available topics with Vietnamese cultural icons
 	const topics: Topic[] = [
-		{ value: 'general', label: 'Trò chuyện chung', labelEn: 'General chat', icon: '💬' },
-		{ value: 'food', label: 'Ẩm thực', labelEn: 'Food & dining', icon: '🍜' },
-		{ value: 'travel', label: 'Du lịch', labelEn: 'Travel', icon: '✈️' },
-		{ value: 'family', label: 'Gia đình', labelEn: 'Family', icon: '👨‍👩‍👧' },
-		{ value: 'work', label: 'Công việc', labelEn: 'Work', icon: '💼' },
-		{ value: 'hobbies', label: 'Sở thích', labelEn: 'Hobbies', icon: '🎨' },
-		{ value: 'shopping', label: 'Mua sắm', labelEn: 'Shopping', icon: '🛍️' },
-		{ value: 'culture', label: 'Văn hóa', labelEn: 'Culture', icon: '🏮' }
+		{ value: 'general', label: 'Tro chuyen chung', labelEn: 'General chat', icon: '' },
+		{ value: 'food', label: 'Am thuc', labelEn: 'Food & dining', icon: '' },
+		{ value: 'travel', label: 'Du lich', labelEn: 'Travel', icon: '' },
+		{ value: 'family', label: 'Gia dinh', labelEn: 'Family', icon: '' },
+		{ value: 'work', label: 'Cong viec', labelEn: 'Work', icon: '' },
+		{ value: 'hobbies', label: 'So thich', labelEn: 'Hobbies', icon: '' },
+		{ value: 'shopping', label: 'Mua sam', labelEn: 'Shopping', icon: '' },
+		{ value: 'culture', label: 'Van hoa', labelEn: 'Culture', icon: '' }
 	];
 
 	const difficulties: { value: Difficulty; label: string; labelEn: string; desc: string }[] = [
-		{ value: 'beginner', label: 'Người mới', labelEn: 'Beginner', desc: 'Simple words, translations' },
-		{ value: 'intermediate', label: 'Trung cấp', labelEn: 'Intermediate', desc: 'Natural conversation' },
-		{ value: 'advanced', label: 'Nâng cao', labelEn: 'Advanced', desc: 'Idioms, cultural depth' }
+		{ value: 'beginner', label: 'Nguoi moi', labelEn: 'Beginner', desc: 'Simple words, translations' },
+		{ value: 'intermediate', label: 'Trung cap', labelEn: 'Intermediate', desc: 'Natural conversation' },
+		{ value: 'advanced', label: 'Nang cao', labelEn: 'Advanced', desc: 'Idioms, cultural depth' }
 	];
 
 	const modes: { value: PracticeMode; label: string; labelEn: string; desc: string; descEn: string }[] = [
 		{
 			value: 'free',
-			label: 'Trò chuyện tự do',
+			label: 'Tro chuyen tu do',
 			labelEn: 'Free Chat',
-			desc: 'Nói thoải mái, không sửa lỗi',
+			desc: 'Noi thoai mai, khong sua loi',
 			descEn: 'Practice speaking naturally without corrections'
 		},
 		{
 			value: 'coach',
-			label: 'Học với Cô Hà',
+			label: 'Hoc voi Co Ha',
 			labelEn: 'Coach Mode',
-			desc: 'Được sửa lỗi và giải thích',
+			desc: 'Duoc sua loi va giai thich',
 			descEn: 'Get gentle corrections and explanations'
 		}
 	];
@@ -133,10 +163,76 @@
 		}
 	}
 
+	// Load usage status on mount
+	async function loadUsageStatus() {
+		isLoadingUsage = true;
+		try {
+			usageStatus = await getUsageStatus();
+		} catch (err) {
+			console.error('[Practice] Failed to load usage status:', err);
+			// Keep default free plan status on error
+		} finally {
+			isLoadingUsage = false;
+		}
+	}
+
+	// Start heartbeat interval
+	function startHeartbeat() {
+		if (heartbeatInterval) {
+			clearInterval(heartbeatInterval);
+		}
+
+		// Send heartbeat every 30 seconds
+		heartbeatInterval = setInterval(async () => {
+			if (!usageSessionId) return;
+
+			try {
+				const result = await sendHeartbeat(usageSessionId);
+
+				// Update usage status from heartbeat response
+				usageStatus.minutesUsed = usageStatus.minutesLimit - result.minutesRemaining;
+				usageStatus.minutesRemaining = result.minutesRemaining;
+				usageStatus.percentUsed = Math.round(
+					(usageStatus.minutesUsed / usageStatus.minutesLimit) * 100
+				);
+
+				// Show warning if low on credits
+				if (result.warning) {
+					showLowCreditWarning = true;
+					console.warn('[Practice] Low credit warning:', result.warning);
+				}
+
+				// Auto-end session if credits exhausted
+				if (result.minutesRemaining <= 0) {
+					errorMessage = 'Session ended: Monthly limit reached.';
+					await endSession();
+				}
+			} catch (err) {
+				console.error('[Practice] Heartbeat failed:', err);
+			}
+		}, 30_000);
+	}
+
+	// Stop heartbeat interval
+	function stopHeartbeat() {
+		if (heartbeatInterval) {
+			clearInterval(heartbeatInterval);
+			heartbeatInterval = null;
+		}
+	}
+
 	// Connect to voice session (with optional provider override)
 	async function startSession(forceProvider?: 'gemini' | 'openai') {
+		// Check credits before starting
+		if (!canStartSession) {
+			errorMessage = 'No credits remaining. Please upgrade your plan.';
+			return;
+		}
+
 		connectionState = 'connecting';
 		errorMessage = '';
+		showLowCreditWarning = false;
+
 		// Only reset history if this is a fresh session, not a reconnect
 		if (!forceProvider) {
 			conversationHistory = [];
@@ -153,6 +249,17 @@
 		disconnectReason = '';
 
 		try {
+			// 1. Start usage session first (reserves credits)
+			const usageResult = await startUsageSession({
+				topic: selectedTopic,
+				difficulty: selectedDifficulty
+			});
+			usageSessionId = usageResult.sessionId;
+
+			// 2. Start heartbeat
+			startHeartbeat();
+
+			// 3. Connect to voice API
 			const config = getConfigForMode(selectedMode);
 
 			// Create VoiceClient - use forceProvider if specified, otherwise Gemini primary with OpenAI fallback
@@ -246,13 +353,43 @@
 		} catch (err) {
 			errorMessage = err instanceof Error ? err.message : 'Failed to connect';
 			connectionState = 'error';
+
+			// Clean up usage session if voice connection failed
+			if (usageSessionId) {
+				try {
+					await endUsageSession(usageSessionId);
+				} catch {
+					// Ignore cleanup errors
+				}
+				usageSessionId = null;
+			}
+			stopHeartbeat();
 		}
 	}
 
 	// End session
 	async function endSession() {
+		// Stop heartbeat first
+		stopHeartbeat();
+
+		// Disconnect from voice API
 		client?.disconnect();
 		client = null;
+
+		// End usage session
+		if (usageSessionId) {
+			try {
+				const result = await endUsageSession(usageSessionId);
+				usageStatus.minutesUsed = result.totalMinutesUsed;
+				usageStatus.minutesRemaining = result.minutesRemaining;
+				usageStatus.percentUsed = Math.round(
+					(usageStatus.minutesUsed / usageStatus.minutesLimit) * 100
+				);
+			} catch (err) {
+				console.error('[Practice] Failed to end usage session:', err);
+			}
+			usageSessionId = null;
+		}
 
 		// Show summary modal if in Coach Mode and we have transcript
 		if (selectedMode === 'coach' && sessionTranscript.length > 0) {
@@ -324,6 +461,7 @@
 		showSummaryModal = false;
 		corrections = [];
 		extractionError = '';
+		showLowCreditWarning = false;
 	}
 
 	// Close summary modal and reset
@@ -373,14 +511,27 @@
 		}
 	}
 
-	// Cleanup on destroy
+	// Lifecycle
+	onMount(() => {
+		loadUsageStatus();
+	});
+
 	onDestroy(() => {
+		// Clean up heartbeat
+		stopHeartbeat();
+
+		// End usage session if active
+		if (usageSessionId) {
+			endUsageSession(usageSessionId).catch(() => {});
+		}
+
+		// Disconnect voice client
 		client?.disconnect();
 	});
 </script>
 
 <svelte:head>
-	<title>Practice Vietnamese | Speak Phở Real</title>
+	<title>Practice Vietnamese | Speak Pho Real</title>
 </svelte:head>
 
 <div class="min-h-[calc(100vh-3.5rem)] flex flex-col paper-texture">
@@ -393,7 +544,7 @@
 			<!-- Header -->
 			<header class="text-center py-12 px-4">
 				<p class="text-primary font-medium mb-3 viet-text tracking-wide animate-fade-in">
-					Luyện nói tiếng Việt
+					Luyen noi tieng Viet
 				</p>
 				<h1 class="text-4xl md:text-5xl text-foreground mb-3 tracking-tight">
 					Voice Practice
@@ -402,6 +553,34 @@
 					Speak naturally with your AI tutor. Real conversation, gentle corrections.
 				</p>
 				<div class="ink-stroke max-w-xs mx-auto mt-6"></div>
+
+				<!-- Usage Bar -->
+				<div class="mt-6 max-w-md mx-auto bg-card rounded-xl p-4 shadow-sm border border-border">
+					{#if isLoadingUsage}
+						<div class="flex items-center justify-center py-2">
+							<Loader2 class="w-5 h-5 text-muted-foreground animate-spin" />
+							<span class="ml-2 text-sm text-muted-foreground">Loading usage...</span>
+						</div>
+					{:else}
+						<UsageBar
+							plan={usageStatus.plan}
+							minutesUsed={usageStatus.minutesUsed}
+							minutesLimit={usageStatus.minutesLimit}
+							minutesRemaining={usageStatus.minutesRemaining}
+							percentUsed={usageStatus.percentUsed}
+						/>
+					{/if}
+				</div>
+
+				<!-- Usage Warning -->
+				{#if !isLoadingUsage && usageStatus.minutesRemaining <= 5}
+					<div class="mt-4 max-w-md mx-auto">
+						<UsageWarning
+							minutesRemaining={usageStatus.minutesRemaining}
+							showUpgradeLink={true}
+						/>
+					</div>
+				{/if}
 			</header>
 
 			<!-- Settings -->
@@ -511,16 +690,32 @@
 					<!-- Start Button -->
 					<div class="text-center pt-4 animate-slide-up" style="animation-delay: 400ms;">
 						<button
-							onclick={startSession}
-							class="group inline-flex items-center gap-3 px-10 py-4 bg-primary text-primary-foreground rounded-2xl hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-lg"
+							onclick={() => startSession()}
+							disabled={!canStartSession}
+							class="group inline-flex items-center gap-3 px-10 py-4 bg-primary text-primary-foreground rounded-2xl hover:bg-primary/90 transition-all duration-300 shadow-lg hover:shadow-xl hover:-translate-y-0.5 text-lg disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:shadow-lg disabled:hover:translate-y-0"
 						>
-							<Mic class="w-6 h-6 transition-transform group-hover:scale-110" />
-							<span class="viet-text">Bắt đầu nói</span>
-							<span class="text-primary-foreground/70 text-base">Start Speaking</span>
+							{#if !canStartSession}
+								<Lock class="w-6 h-6" />
+								<span>No Credits</span>
+								<span class="text-primary-foreground/70 text-base">Upgrade Plan</span>
+							{:else}
+								<Mic class="w-6 h-6 transition-transform group-hover:scale-110" />
+								<span class="viet-text">Bat dau noi</span>
+								<span class="text-primary-foreground/70 text-base">Start Speaking</span>
+							{/if}
 						</button>
-						<p class="text-xs text-muted-foreground mt-4">
-							Requires microphone access • Speak in Vietnamese
-						</p>
+						{#if canStartSession}
+							<p class="text-xs text-muted-foreground mt-4">
+								Requires microphone access - {usageStatus.minutesRemaining} minutes remaining
+							</p>
+						{:else}
+							<a
+								href="/pricing"
+								class="inline-block mt-4 text-sm text-primary hover:underline"
+							>
+								View pricing plans
+							</a>
+						{/if}
 					</div>
 				</div>
 			</div>
@@ -536,7 +731,7 @@
 					<div class="orb-ring delay-1"></div>
 					<div class="orb-ring delay-2"></div>
 				</div>
-				<h2 class="text-2xl text-foreground mb-2">Đang kết nối...</h2>
+				<h2 class="text-2xl text-foreground mb-2">Dang ket noi...</h2>
 				<p class="text-muted-foreground">Connecting to your tutor</p>
 			</div>
 		</div>
@@ -548,7 +743,7 @@
 				<div class="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-500/10 flex items-center justify-center">
 					<PhoneOff class="w-10 h-10 text-amber-500" />
 				</div>
-				<h2 class="text-2xl text-foreground mb-2">Kết nối bị gián đoạn</h2>
+				<h2 class="text-2xl text-foreground mb-2">Ket noi bi gian doan</h2>
 				<p class="text-muted-foreground mb-2">Connection interrupted</p>
 				{#if disconnectReason}
 					<p class="text-sm text-muted-foreground/70 mb-6 bg-muted/50 rounded-lg px-3 py-2">
@@ -558,14 +753,16 @@
 				<div class="flex flex-col sm:flex-row gap-3 justify-center flex-wrap">
 					<button
 						onclick={() => startSession()}
-						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all"
+						disabled={!canStartSession}
+						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-primary text-primary-foreground rounded-xl hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						<RefreshCw class="w-5 h-5" />
 						<span>Reconnect</span>
 					</button>
 					<button
 						onclick={() => startSession('openai')}
-						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all"
+						disabled={!canStartSession}
+						class="inline-flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 text-white rounded-xl hover:bg-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
 					>
 						<Zap class="w-5 h-5" />
 						<span>Try OpenAI</span>
@@ -625,6 +822,10 @@
 					{/if}
 				</div>
 				<div class="flex items-center gap-3">
+					<!-- Usage indicator during session -->
+					<span class="text-xs text-muted-foreground">
+						{usageStatus.minutesRemaining} min left
+					</span>
 					<button
 						onclick={switchMode}
 						disabled={isSwitchingMode}
@@ -644,13 +845,27 @@
 			<!-- Fallback Notice Banner -->
 			{#if showFallbackNotice}
 				<div class="fallback-notice">
-					<span class="text-amber-600">⚠️</span>
+					<span class="text-amber-600">Warning:</span>
 					<span>Using OpenAI as fallback. Reason: {fallbackReason}</span>
 					<button
 						onclick={() => showFallbackNotice = false}
 						class="ml-auto text-amber-600 hover:text-amber-800"
 					>
-						✕
+						x
+					</button>
+				</div>
+			{/if}
+
+			<!-- Low Credit Warning Banner -->
+			{#if showLowCreditWarning}
+				<div class="credit-warning">
+					<span>Warning:</span>
+					<span>Low on credits! Only {usageStatus.minutesRemaining} minutes remaining.</span>
+					<button
+						onclick={() => showLowCreditWarning = false}
+						class="ml-auto text-amber-600 hover:text-amber-800"
+					>
+						x
 					</button>
 				</div>
 			{/if}
@@ -658,7 +873,7 @@
 			<!-- Session Warning Banner (Gemini 15-min limit) -->
 			{#if showSessionWarning}
 				<div class="session-warning">
-					<span>⏱️</span>
+					<span>Timer:</span>
 					<span>Session ending in {sessionWarningSeconds}s</span>
 					<button
 						onclick={extendSession}
@@ -691,17 +906,17 @@
 					<div class="text-left">
 						{#if isCoachSpeaking}
 							<p class="text-sm font-medium text-foreground">
-								{selectedMode === 'coach' ? 'Cô Hà đang nói...' : 'Lan đang nói...'}
+								{selectedMode === 'coach' ? 'Co Ha dang noi...' : 'Lan dang noi...'}
 							</p>
 							<p class="text-xs text-muted-foreground">
 								{selectedMode === 'coach' ? 'Coach is speaking' : 'Partner is speaking'}
 							</p>
 						{:else if isMuted}
-							<p class="text-sm font-medium text-foreground">Đã tắt mic</p>
+							<p class="text-sm font-medium text-foreground">Da tat mic</p>
 							<p class="text-xs text-muted-foreground">Microphone muted</p>
 						{:else}
-							<p class="text-sm font-medium text-foreground">Đang nghe...</p>
-							<p class="text-xs text-muted-foreground">Listening — speak in Vietnamese</p>
+							<p class="text-sm font-medium text-foreground">Dang nghe...</p>
+							<p class="text-xs text-muted-foreground">Listening - speak in Vietnamese</p>
 						{/if}
 					</div>
 				</div>
@@ -723,7 +938,7 @@
 						{#each conversationHistory as message, i}
 							<div class="transcript-card {message.role === 'user' ? 'user' : 'coach'}" class:animate-slide-up={i === conversationHistory.length - 1}>
 								<span class="transcript-label">
-									{message.role === 'user' ? 'You' : (selectedMode === 'coach' ? 'Cô Hà' : 'Lan')}
+									{message.role === 'user' ? 'You' : (selectedMode === 'coach' ? 'Co Ha' : 'Lan')}
 								</span>
 								<p class="viet-text text-base leading-relaxed">{message.text}</p>
 							</div>
@@ -744,7 +959,7 @@
 						{#if streamingCoachText}
 							<div class="transcript-card coach streaming animate-slide-up">
 								<span class="transcript-label flex items-center gap-2">
-									{selectedMode === 'coach' ? 'Cô Hà' : 'Lan'}
+									{selectedMode === 'coach' ? 'Co Ha' : 'Lan'}
 									<span class="streaming-indicator"></span>
 								</span>
 								<p class="viet-text text-base leading-relaxed">{streamingCoachText}</p>
@@ -798,7 +1013,7 @@
 			<!-- Modal Header -->
 			<div class="modal-header">
 				<div>
-					<h2 class="text-xl font-semibold text-foreground">Tổng kết buổi học</h2>
+					<h2 class="text-xl font-semibold text-foreground">Tong ket buoi hoc</h2>
 					<p class="text-sm text-muted-foreground">Session Summary</p>
 				</div>
 				<button
@@ -815,7 +1030,7 @@
 				{#if isExtractingCorrections}
 					<div class="text-center py-12">
 						<Loader2 class="w-10 h-10 text-primary mx-auto mb-4 animate-spin" />
-						<p class="text-foreground">Đang phân tích buổi học...</p>
+						<p class="text-foreground">Dang phan tich buoi hoc...</p>
 						<p class="text-sm text-muted-foreground">Analyzing your session</p>
 					</div>
 				{:else if extractionError}
@@ -828,7 +1043,7 @@
 						<div class="w-16 h-16 mx-auto mb-4 rounded-full bg-viet-jade/10 flex items-center justify-center">
 							<Check class="w-8 h-8 text-viet-jade" />
 						</div>
-						<p class="text-lg text-foreground">Tuyệt vời!</p>
+						<p class="text-lg text-foreground">Tuyet voi!</p>
 						<p class="text-muted-foreground">No corrections needed this session</p>
 					</div>
 				{:else}
@@ -1483,6 +1698,18 @@
 
 	/* Fallback Notice */
 	.fallback-notice {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		padding: 0.75rem 1rem;
+		background: hsl(45 93% 47% / 0.1);
+		border-bottom: 1px solid hsl(45 93% 47% / 0.2);
+		font-size: 0.875rem;
+		color: hsl(45 93% 30%);
+	}
+
+	/* Credit Warning */
+	.credit-warning {
 		display: flex;
 		align-items: center;
 		gap: 0.5rem;

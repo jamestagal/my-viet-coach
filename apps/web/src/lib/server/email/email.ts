@@ -1,14 +1,34 @@
 import { Resend } from 'resend';
 import { dev } from '$app/environment';
-import { env } from '$env/dynamic/private';
 import { PUBLIC_PROJECT_NAME } from '$env/static/public';
+
+// Cached environment variables (set from hooks.server.ts in production)
+let cachedEmailEnv: {
+	RESEND_API_KEY?: string;
+	FROM_EMAIL?: string;
+} | null = null;
+
+/**
+ * Set email environment variables (must be called from hooks.server.ts in production)
+ */
+export function setEmailEnv(env: { RESEND_API_KEY?: string; FROM_EMAIL?: string }) {
+	console.log('[Email] setEmailEnv called:', {
+		hasApiKey: !!env.RESEND_API_KEY,
+		apiKeyLength: env.RESEND_API_KEY?.length,
+		fromEmail: env.FROM_EMAIL
+	});
+	cachedEmailEnv = env;
+	// Reset Resend client to pick up new credentials
+	resend = null;
+}
 
 // Production: Resend SDK (native Cloudflare Workers support)
 // Initialize lazily when needed
 let resend: Resend | null = null;
 function getResend() {
-	if (!resend && env.RESEND_API_KEY) {
-		resend = new Resend(env.RESEND_API_KEY);
+	const apiKey = cachedEmailEnv?.RESEND_API_KEY;
+	if (!resend && apiKey) {
+		resend = new Resend(apiKey);
 	}
 	return resend;
 }
@@ -55,8 +75,16 @@ async function sendLocalEmail(options: EmailOptions) {
 }
 
 async function sendResendEmail(options: EmailOptions) {
-	const fromEmail = env.FROM_EMAIL || `noreply@${PUBLIC_PROJECT_NAME.toLowerCase().replace(/\s/g, '')}.com`;
+	const fromEmail = cachedEmailEnv?.FROM_EMAIL || `noreply@${PUBLIC_PROJECT_NAME.toLowerCase().replace(/\s/g, '')}.com`;
 	const resendClient = getResend();
+
+	console.log('[Email] sendResendEmail:', {
+		to: options.to,
+		fromEmail,
+		hasClient: !!resendClient,
+		hasCachedEnv: !!cachedEmailEnv,
+		hasApiKey: !!cachedEmailEnv?.RESEND_API_KEY
+	});
 
 	if (!resendClient) {
 		throw new Error('Resend API key not configured');
@@ -84,7 +112,7 @@ export async function sendEmail(options: EmailOptions) {
 		return;
 	}
 
-	if (dev || env.LOCAL_EMAIL === 'true') {
+	if (dev) {
 		return sendLocalEmail(options);
 	}
 

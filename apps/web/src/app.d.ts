@@ -46,6 +46,10 @@ declare global {
 		interface Platform {
 			env?: {
 				DB: D1Database;
+				// API Worker URL for cross-worker communication
+				API_URL?: string;
+				// Internal API secret for secure cross-worker calls
+				INTERNAL_API_SECRET?: string;
 			};
 		}
 	}

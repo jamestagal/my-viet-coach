@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "cf-typegen": "wrangler types --env-interface Env"
+    "cf-typegen": "wrangler types --env-interface Env",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@repo/data-ops": "workspace:^",
@@ -14,7 +16,9 @@
     "zod": "^3.25.67"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "^4.20251213.0",
     "typescript": "^5.8.3",
+    "vitest": "^2.1.8",
     "wrangler": "^4.37.1"
   }
 }
