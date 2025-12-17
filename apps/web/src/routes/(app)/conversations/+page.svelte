@@ -195,7 +195,7 @@
 	<!-- Header -->
 	<header class="page-header">
 		<div>
-			<p class="page-subtitle viet-text">Lich su hoi thoai</p>
+			<p class="page-subtitle viet-text">Lịch sử hội thoại</p>
 			<h1 class="page-title">Conversations</h1>
 			<p class="page-description">Review your past practice sessions and corrections</p>
 		</div>

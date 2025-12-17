@@ -210,7 +210,7 @@
 	<!-- Header -->
 	<header class="page-header">
 		<div>
-			<p class="page-subtitle viet-text">On tap loi sai</p>
+			<p class="page-subtitle viet-text">Ôn tập lỗi sai</p>
 			<h1 class="page-title">Review Corrections</h1>
 			<p class="page-description">Review and practice your corrections to improve your Vietnamese</p>
 		</div>
