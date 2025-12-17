@@ -4,6 +4,7 @@ import { POLAR_ACCESS_TOKEN } from '$env/static/private';
 import { getDb } from '$lib/server/database/db';
 import { subscription, product } from '$lib/server/database/schema';
 import { eq, and } from 'drizzle-orm';
+import { send } from '$lib/server/email/email';
 
 // ============================================================================
 // POLAR CLIENT INITIALIZATION
@@ -62,6 +63,30 @@ interface SubscriptionWebhookEvent {
 interface ProductWebhookEvent {
 	type: string;
 	data: PolarProduct;
+}
+
+// Type for order webhook event
+interface OrderWebhookEvent {
+	type: 'order.paid';
+	data: {
+		id: string;
+		totalAmount: number;
+		currency: string;
+		billingReason: string;
+		subscriptionId: string | null;
+		customer: {
+			id: string;
+			email: string;
+			name: string | null;
+			externalId: string | null;
+		};
+		product: {
+			id: string;
+			name: string;
+			isRecurring: boolean;
+			recurringInterval: 'month' | 'year' | null;
+		} | null;
+	};
 }
 
 // Type definitions for Polar product mapping
@@ -201,15 +226,53 @@ export async function updateUserUsageDO(
 
 export const handleWebhook = {
 	/**
-	 * Handle one-time purchases (lifetime plans)
-	 * This is triggered for orders, not subscriptions
+	 * Handle order.paid webhook - sends purchase confirmation email
+	 * This is triggered for all payments: initial subscriptions, renewals, and one-time purchases
 	 */
 	onOrderPaid: async (event: unknown) => {
-		console.log('[Polar webhook] order.paid:', event);
-		// TODO: Implement order paid webhook for lifetime plans
-		// For lifetime plans, you might want to:
-		// 1. Create a subscription record with status 'lifetime' or similar
-		// 2. Or add a 'purchases' table for one-time purchases
+		try {
+			const webhookEvent = event as OrderWebhookEvent;
+
+			if (!webhookEvent?.data) {
+				console.error('[Polar webhook][order.paid] Missing order data');
+				return;
+			}
+
+			const order = webhookEvent.data;
+			const customerEmail = order.customer?.email;
+			const customerName = order.customer?.name;
+			const productName = order.product?.name || 'Speak Phở Real Subscription';
+
+			if (!customerEmail) {
+				console.error('[Polar webhook][order.paid] Missing customer email:', order.id);
+				return;
+			}
+
+			console.log('[Polar webhook][order.paid] Processing:', {
+				orderId: order.id,
+				email: customerEmail,
+				product: productName,
+				amount: order.totalAmount,
+				currency: order.currency,
+				billingReason: order.billingReason
+			});
+
+			// Send purchase confirmation email (don't throw on failure - shouldn't fail webhook)
+			try {
+				await send.purchaseConfirmation({
+					toEmail: customerEmail,
+					customerName,
+					productName,
+					amount: order.totalAmount,
+					currency: order.currency
+				});
+				console.log('[Polar webhook][order.paid] Confirmation email sent to:', customerEmail);
+			} catch (emailError) {
+				console.error('[Polar webhook][order.paid] Email failed:', emailError);
+			}
+		} catch (error) {
+			console.error('[Polar webhook][order.paid] Handler error:', error);
+		}
 	},
 
 	/**

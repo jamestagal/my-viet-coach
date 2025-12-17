@@ -180,7 +180,27 @@ function createAuth() {
 			// 		})
 			// 	]
 			// })
-		]
+		],
+
+		// Database hooks - send welcome email on user creation
+		databaseHooks: {
+			user: {
+				create: {
+					after: async (user) => {
+						try {
+							await send.welcome({
+								toEmail: user.email,
+								userName: user.name
+							});
+							console.log('[Auth] Welcome email sent to:', user.email);
+						} catch (error) {
+							// Log but don't throw - email failure shouldn't block user creation
+							console.error('[Auth] Welcome email failed:', error);
+						}
+					}
+				}
+			}
+		}
 	});
 }
 

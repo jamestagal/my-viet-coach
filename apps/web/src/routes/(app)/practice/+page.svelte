@@ -19,7 +19,8 @@
 		sendHeartbeat,
 		endSession as endUsageSession,
 		hasNoCredits,
-		type UsageStatus
+		type UsageStatus,
+		type SessionEndOptions
 	} from '$lib/services/usage';
 
 	// Types
@@ -92,11 +93,13 @@
 
 	// Provider tracking (Gemini primary, OpenAI fallback)
 	let activeProvider = $state<VoiceProvider | null>(null);
+	let initialProvider = $state<VoiceProvider | null>(null); // Track initial provider for session health
 	let showFallbackNotice = $state(false);
 	let fallbackReason = $state('');
 	let showSessionWarning = $state(false);
 	let sessionWarningSeconds = $state(0);
 	let disconnectReason = $state(''); // Track why session disconnected
+	let disconnectCode = $state<number | undefined>(undefined); // WebSocket close code
 
 	// Client instance
 	let client: VoiceClient | null = null;
@@ -106,35 +109,35 @@
 
 	// Available topics with Vietnamese cultural icons
 	const topics: Topic[] = [
-		{ value: 'general', label: 'Tro chuyen chung', labelEn: 'General chat', icon: '' },
-		{ value: 'food', label: 'Am thuc', labelEn: 'Food & dining', icon: '' },
-		{ value: 'travel', label: 'Du lich', labelEn: 'Travel', icon: '' },
-		{ value: 'family', label: 'Gia dinh', labelEn: 'Family', icon: '' },
-		{ value: 'work', label: 'Cong viec', labelEn: 'Work', icon: '' },
-		{ value: 'hobbies', label: 'So thich', labelEn: 'Hobbies', icon: '' },
-		{ value: 'shopping', label: 'Mua sam', labelEn: 'Shopping', icon: '' },
-		{ value: 'culture', label: 'Van hoa', labelEn: 'Culture', icon: '' }
+		{ value: 'general', label: 'Trò chuyện chung', labelEn: 'General chat', icon: '💬' },
+		{ value: 'food', label: 'Ẩm thực', labelEn: 'Food & dining', icon: '🍜' },
+		{ value: 'travel', label: 'Du lịch', labelEn: 'Travel', icon: '✈️' },
+		{ value: 'family', label: 'Gia đình', labelEn: 'Family', icon: '👨‍👩‍👧' },
+		{ value: 'work', label: 'Công việc', labelEn: 'Work', icon: '💼' },
+		{ value: 'hobbies', label: 'Sở thích', labelEn: 'Hobbies', icon: '🎨' },
+		{ value: 'shopping', label: 'Mua sắm', labelEn: 'Shopping', icon: '🛍️' },
+		{ value: 'culture', label: 'Văn hóa', labelEn: 'Culture', icon: '🏮' }
 	];
 
 	const difficulties: { value: Difficulty; label: string; labelEn: string; desc: string }[] = [
-		{ value: 'beginner', label: 'Nguoi moi', labelEn: 'Beginner', desc: 'Simple words, translations' },
-		{ value: 'intermediate', label: 'Trung cap', labelEn: 'Intermediate', desc: 'Natural conversation' },
-		{ value: 'advanced', label: 'Nang cao', labelEn: 'Advanced', desc: 'Idioms, cultural depth' }
+		{ value: 'beginner', label: 'Người mới', labelEn: 'Beginner', desc: 'Simple words, translations' },
+		{ value: 'intermediate', label: 'Trung cấp', labelEn: 'Intermediate', desc: 'Natural conversation' },
+		{ value: 'advanced', label: 'Nâng cao', labelEn: 'Advanced', desc: 'Idioms, cultural depth' }
 	];
 
 	const modes: { value: PracticeMode; label: string; labelEn: string; desc: string; descEn: string }[] = [
 		{
 			value: 'free',
-			label: 'Tro chuyen tu do',
+			label: 'Trò chuyện tự do',
 			labelEn: 'Free Chat',
-			desc: 'Noi thoai mai, khong sua loi',
+			desc: 'Nói thoải mái, không sửa lỗi',
 			descEn: 'Practice speaking naturally without corrections'
 		},
 		{
 			value: 'coach',
-			label: 'Hoc voi Co Ha',
+			label: 'Học với Cô Hà',
 			labelEn: 'Coach Mode',
-			desc: 'Duoc sua loi va giai thich',
+			desc: 'Được sửa lỗi và giải thích',
 			descEn: 'Get gentle corrections and explanations'
 		}
 	];
@@ -243,28 +246,35 @@
 		streamingUserText = '';
 		// Reset provider state
 		activeProvider = null;
+		initialProvider = null;
 		showFallbackNotice = false;
 		fallbackReason = '';
 		showSessionWarning = false;
 		disconnectReason = '';
+		disconnectCode = undefined;
+
+		// Determine the primary provider for this session
+		const primaryProvider = forceProvider || 'gemini';
+		const fallbackProvider = forceProvider ? null : 'openai'; // No fallback when forcing a specific provider
 
 		try {
-			// 1. Start usage session first (reserves credits)
+			// 1. Start usage session first (reserves credits) - pass mode and provider
 			const usageResult = await startUsageSession({
 				topic: selectedTopic,
-				difficulty: selectedDifficulty
+				difficulty: selectedDifficulty,
+				mode: selectedMode,
+				provider: primaryProvider
 			});
 			usageSessionId = usageResult.sessionId;
+
+			// Store the initial provider for tracking provider switches
+			initialProvider = primaryProvider;
 
 			// 2. Start heartbeat
 			startHeartbeat();
 
 			// 3. Connect to voice API
 			const config = getConfigForMode(selectedMode);
-
-			// Create VoiceClient - use forceProvider if specified, otherwise Gemini primary with OpenAI fallback
-			const primaryProvider = forceProvider || 'gemini';
-			const fallbackProvider = forceProvider ? null : 'openai'; // No fallback when forcing a specific provider
 
 			client = new VoiceClient(
 				{
@@ -277,9 +287,10 @@
 						activeProvider = provider;
 						connectionState = 'connected';
 					},
-					onDisconnected: (reason) => {
-						console.log('[Practice] Session disconnected:', reason);
+					onDisconnected: (reason, code) => {
+						console.log('[Practice] Session disconnected:', reason, 'code:', code);
 						disconnectReason = reason;
+						disconnectCode = code;
 						connectionState = 'disconnected';
 					},
 					onUserTranscript: (text) => {
@@ -338,6 +349,7 @@
 					onProviderFallback: (from, to, reason) => {
 						showFallbackNotice = true;
 						fallbackReason = reason;
+						activeProvider = to;
 						console.warn(`Switched from ${from} to ${to}: ${reason}`);
 					},
 					onSessionTimeWarning: (remainingSeconds) => {
@@ -357,7 +369,7 @@
 			// Clean up usage session if voice connection failed
 			if (usageSessionId) {
 				try {
-					await endUsageSession(usageSessionId);
+					await endUsageSession({ sessionId: usageSessionId });
 				} catch {
 					// Ignore cleanup errors
 				}
@@ -376,10 +388,30 @@
 		client?.disconnect();
 		client = null;
 
-		// End usage session
+		// End usage session with extended data
 		if (usageSessionId) {
 			try {
-				const result = await endUsageSession(usageSessionId);
+				// Build session end options with complete data
+				const endOptions: SessionEndOptions = {
+					sessionId: usageSessionId,
+					// Disconnect info
+					disconnectCode: disconnectCode,
+					disconnectReason: disconnectReason || 'User ended session',
+					// Provider info
+					provider: activeProvider || initialProvider || 'gemini',
+					providerSwitched: initialProvider !== null && activeProvider !== null && initialProvider !== activeProvider,
+					// Message data
+					messageCount: sessionTranscript.length,
+					messages: sessionTranscript.map(msg => ({
+						role: msg.role,
+						text: msg.text,
+						timestamp: msg.timestamp
+					})),
+					// Corrections will be added after extraction (for coach mode)
+					corrections: []
+				};
+
+				const result = await endUsageSession(endOptions);
 				usageStatus.minutesUsed = result.totalMinutesUsed;
 				usageStatus.minutesRemaining = result.minutesRemaining;
 				usageStatus.percentUsed = Math.round(
@@ -434,22 +466,6 @@
 		}
 	}
 
-	// Save corrections to localStorage
-	function saveCorrections() {
-		if (corrections.length === 0) return;
-
-		const savedCorrections = JSON.parse(localStorage.getItem('speakphoreal_corrections') || '[]');
-		const newEntry = {
-			sessionId,
-			date: new Date().toISOString(),
-			topic: topics.find(t => t.value === selectedTopic)?.labelEn || selectedTopic,
-			difficulty: selectedDifficulty,
-			corrections
-		};
-		savedCorrections.push(newEntry);
-		localStorage.setItem('speakphoreal_corrections', JSON.stringify(savedCorrections));
-	}
-
 	// Reset session state
 	function resetSession() {
 		connectionState = 'idle';
@@ -462,13 +478,13 @@
 		corrections = [];
 		extractionError = '';
 		showLowCreditWarning = false;
+		initialProvider = null;
+		disconnectCode = undefined;
 	}
 
 	// Close summary modal and reset
-	function closeSummary(save = false) {
-		if (save && corrections.length > 0) {
-			saveCorrections();
-		}
+	// Note: Corrections are now saved server-side via session end API, no localStorage needed
+	function closeSummary() {
 		showSummaryModal = false;
 		resetSession();
 	}
@@ -522,7 +538,7 @@
 
 		// End usage session if active
 		if (usageSessionId) {
-			endUsageSession(usageSessionId).catch(() => {});
+			endUsageSession({ sessionId: usageSessionId }).catch(() => {});
 		}
 
 		// Disconnect voice client
@@ -544,7 +560,7 @@
 			<!-- Header -->
 			<header class="text-center py-12 px-4">
 				<p class="text-primary font-medium mb-3 viet-text tracking-wide animate-fade-in">
-					Luyen noi tieng Viet
+					Luyện nói tiếng Việt
 				</p>
 				<h1 class="text-4xl md:text-5xl text-foreground mb-3 tracking-tight">
 					Voice Practice
@@ -700,7 +716,7 @@
 								<span class="text-primary-foreground/70 text-base">Upgrade Plan</span>
 							{:else}
 								<Mic class="w-6 h-6 transition-transform group-hover:scale-110" />
-								<span class="viet-text">Bat dau noi</span>
+								<span class="viet-text">Bắt đầu nói</span>
 								<span class="text-primary-foreground/70 text-base">Start Speaking</span>
 							{/if}
 						</button>
@@ -731,7 +747,7 @@
 					<div class="orb-ring delay-1"></div>
 					<div class="orb-ring delay-2"></div>
 				</div>
-				<h2 class="text-2xl text-foreground mb-2">Dang ket noi...</h2>
+				<h2 class="text-2xl text-foreground mb-2">Đang kết nối...</h2>
 				<p class="text-muted-foreground">Connecting to your tutor</p>
 			</div>
 		</div>
@@ -743,7 +759,7 @@
 				<div class="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-500/10 flex items-center justify-center">
 					<PhoneOff class="w-10 h-10 text-amber-500" />
 				</div>
-				<h2 class="text-2xl text-foreground mb-2">Ket noi bi gian doan</h2>
+				<h2 class="text-2xl text-foreground mb-2">Kết nối bị gián đoạn</h2>
 				<p class="text-muted-foreground mb-2">Connection interrupted</p>
 				{#if disconnectReason}
 					<p class="text-sm text-muted-foreground/70 mb-6 bg-muted/50 rounded-lg px-3 py-2">
@@ -906,16 +922,16 @@
 					<div class="text-left">
 						{#if isCoachSpeaking}
 							<p class="text-sm font-medium text-foreground">
-								{selectedMode === 'coach' ? 'Co Ha dang noi...' : 'Lan dang noi...'}
+								{selectedMode === 'coach' ? 'Cô Hà đang nói...' : 'Lan đang nói...'}
 							</p>
 							<p class="text-xs text-muted-foreground">
 								{selectedMode === 'coach' ? 'Coach is speaking' : 'Partner is speaking'}
 							</p>
 						{:else if isMuted}
-							<p class="text-sm font-medium text-foreground">Da tat mic</p>
+							<p class="text-sm font-medium text-foreground">Đã tắt mic</p>
 							<p class="text-xs text-muted-foreground">Microphone muted</p>
 						{:else}
-							<p class="text-sm font-medium text-foreground">Dang nghe...</p>
+							<p class="text-sm font-medium text-foreground">Đang nghe...</p>
 							<p class="text-xs text-muted-foreground">Listening - speak in Vietnamese</p>
 						{/if}
 					</div>
@@ -1006,18 +1022,18 @@
 {#if showSummaryModal}
 	<!-- svelte-ignore a11y_click_events_have_key_events -->
 	<!-- svelte-ignore a11y_no_static_element_interactions -->
-	<div class="modal-overlay" onclick={() => closeSummary(false)} role="dialog" aria-modal="true" tabindex="-1">
+	<div class="modal-overlay" onclick={() => closeSummary()} role="dialog" aria-modal="true" tabindex="-1">
 		<!-- svelte-ignore a11y_click_events_have_key_events -->
 		<!-- svelte-ignore a11y_no_static_element_interactions -->
 		<div class="modal-content" onclick={(e) => e.stopPropagation()}>
 			<!-- Modal Header -->
 			<div class="modal-header">
 				<div>
-					<h2 class="text-xl font-semibold text-foreground">Tong ket buoi hoc</h2>
+					<h2 class="text-xl font-semibold text-foreground">Tổng kết buổi học</h2>
 					<p class="text-sm text-muted-foreground">Session Summary</p>
 				</div>
 				<button
-					onclick={() => closeSummary(false)}
+					onclick={() => closeSummary()}
 					class="modal-close-btn"
 					aria-label="Close"
 				>
@@ -1030,7 +1046,7 @@
 				{#if isExtractingCorrections}
 					<div class="text-center py-12">
 						<Loader2 class="w-10 h-10 text-primary mx-auto mb-4 animate-spin" />
-						<p class="text-foreground">Dang phan tich buoi hoc...</p>
+						<p class="text-foreground">Đang phân tích buổi học...</p>
 						<p class="text-sm text-muted-foreground">Analyzing your session</p>
 					</div>
 				{:else if extractionError}
@@ -1083,27 +1099,18 @@
 			<!-- Modal Footer -->
 			<div class="modal-footer">
 				<button
-					onclick={() => closeSummary(false)}
+					onclick={() => closeSummary()}
 					class="btn-secondary"
 				>
-					Skip
+					Close
 				</button>
-				{#if corrections.length > 0}
-					<button
-						onclick={() => closeSummary(true)}
-						class="btn-primary"
-					>
-						<Save class="w-4 h-4" />
-						Save for Review
-					</button>
-				{:else}
-					<button
-						onclick={() => closeSummary(false)}
-						class="btn-primary"
-					>
-						Done
-					</button>
-				{/if}
+				<button
+					onclick={() => closeSummary()}
+					class="btn-primary"
+				>
+					<Check class="w-4 h-4" />
+					Done
+				</button>
 			</div>
 		</div>
 	</div>

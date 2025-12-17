@@ -93,6 +93,10 @@
 	<meta name="description" content={meta.description} />
 	<link rel="canonical" href={meta.canonicalUrl} />
 
+	<!-- Preconnect to Google Fonts for faster font loading -->
+	<link rel="preconnect" href="https://fonts.googleapis.com" />
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous" />
+
 	<!--
 		  Icons
 		  - https://evilmartians.com/chronicles/how-to-favicon-in-2021-six-files-that-fit-most-needs

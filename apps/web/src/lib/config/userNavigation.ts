@@ -3,7 +3,9 @@ import {
 	Mic,
 	BookOpen,
 	Settings,
-	User
+	User,
+	MessageSquare,
+	ClipboardCheck
 } from 'lucide-svelte';
 import type { ComponentType } from 'svelte';
 
@@ -24,6 +26,16 @@ export const userLinks: NavLink[] = [
 		label: 'Practice',
 		href: '/practice',
 		icon: Mic
+	},
+	{
+		label: 'Conversations',
+		href: '/conversations',
+		icon: MessageSquare
+	},
+	{
+		label: 'Review',
+		href: '/review/corrections',
+		icon: ClipboardCheck
 	},
 	{
 		label: 'Lessons',
