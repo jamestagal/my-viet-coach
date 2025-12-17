@@ -77,8 +77,8 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 		const formattedSession = {
 			id: session.id,
 			startedAt:
-				session.startedAt instanceof Date ? session.startedAt.getTime() : session.startedAt,
-			endedAt: session.endedAt instanceof Date ? session.endedAt.getTime() : session.endedAt,
+				session.startedAt instanceof Date ? session.startedAt.getTime() : (typeof session.startedAt === 'number' ? session.startedAt * 1000 : session.startedAt),
+			endedAt: session.endedAt instanceof Date ? session.endedAt.getTime() : (typeof session.endedAt === 'number' ? session.endedAt * 1000 : session.endedAt),
 			topic: session.topic,
 			difficulty: session.difficulty,
 			mode: session.mode,
@@ -87,7 +87,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 			providerSwitchedAt:
 				session.providerSwitchedAt instanceof Date
 					? session.providerSwitchedAt.getTime()
-					: session.providerSwitchedAt,
+					: (typeof session.providerSwitchedAt === 'number' ? session.providerSwitchedAt * 1000 : session.providerSwitchedAt),
 			disconnectCode: session.disconnectCode,
 			disconnectReason: session.disconnectReason,
 			messageCount: session.messageCount ?? 0,
@@ -98,7 +98,7 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 			id: msg.id,
 			role: msg.role,
 			text: msg.text,
-			timestamp: msg.timestamp instanceof Date ? msg.timestamp.getTime() : msg.timestamp,
+			timestamp: msg.timestamp instanceof Date ? msg.timestamp.getTime() : (typeof msg.timestamp === 'number' ? msg.timestamp * 1000 : msg.timestamp),
 			sequenceNumber: msg.sequenceNumber
 		}));
 
@@ -110,9 +110,9 @@ export const GET: RequestHandler = async ({ locals, params }) => {
 			category: corr.category,
 			reviewed: corr.reviewed ?? false,
 			reviewedAt:
-				corr.reviewedAt instanceof Date ? corr.reviewedAt.getTime() : corr.reviewedAt ?? null,
+				corr.reviewedAt instanceof Date ? corr.reviewedAt.getTime() : (typeof corr.reviewedAt === 'number' ? corr.reviewedAt * 1000 : corr.reviewedAt ?? null),
 			confidenceLevel: corr.confidenceLevel ?? 0,
-			createdAt: corr.createdAt instanceof Date ? corr.createdAt.getTime() : corr.createdAt
+			createdAt: corr.createdAt instanceof Date ? corr.createdAt.getTime() : (typeof corr.createdAt === 'number' ? corr.createdAt * 1000 : corr.createdAt)
 		}));
 
 		return json({

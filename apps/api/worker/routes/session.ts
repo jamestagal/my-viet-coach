@@ -280,7 +280,7 @@ export async function handleSessionStart(
         `INSERT INTO usage_sessions (id, user_id, started_at, topic, difficulty, mode, provider, initial_provider)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
-        .bind(sessionId, userId, Date.now(), topic, difficulty, mode, provider, provider)
+        .bind(sessionId, userId, Math.floor(Date.now() / 1000), topic, difficulty, mode, provider, provider)
         .run();
     } catch (dbError) {
       console.error('[Session Start] Failed to log to D1:', dbError);
@@ -469,7 +469,7 @@ export async function handleSessionEnd(
          WHERE id = ?`
       )
         .bind(
-          Date.now(),
+          Math.floor(Date.now() / 1000),
           result.minutesUsed ?? 0,
           endReason,
           body.disconnectCode ?? null,
@@ -477,7 +477,7 @@ export async function handleSessionEnd(
           body.messageCount ?? 0,
           body.provider ?? 'gemini',
           body.providerSwitched ? 1 : 0,
-          body.providerSwitched ? Date.now() : null,
+          body.providerSwitched ? Math.floor(Date.now() / 1000) : null,
           body.sessionId
         )
         .run();
@@ -501,7 +501,7 @@ export async function handleSessionEnd(
             userId,
             msg.role,
             msg.text,
-            msg.timestamp,
+            Math.floor(msg.timestamp / 1000), // Convert ms to seconds for Drizzle timestamp mode
             idx
           )
         );
@@ -521,7 +521,7 @@ export async function handleSessionEnd(
            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
         );
 
-        const now = Date.now();
+        const nowSeconds = Math.floor(Date.now() / 1000); // Seconds for Drizzle timestamp mode
         const correctionInserts = body.corrections.map((corr) =>
           correctionStmt.bind(
             crypto.randomUUID(),
@@ -531,7 +531,7 @@ export async function handleSessionEnd(
             corr.correction,
             corr.explanation ?? null,
             corr.category ?? null,
-            now
+            nowSeconds
           )
         );
 

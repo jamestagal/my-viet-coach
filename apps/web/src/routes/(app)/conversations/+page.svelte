@@ -139,12 +139,14 @@
 		});
 	}
 
-	// Calculate duration in minutes
+	// Calculate duration in mm:ss format
 	function getDuration(startedAt: number, endedAt: number | null): string {
 		if (!endedAt) return 'In progress';
 		const durationMs = endedAt - startedAt;
-		const minutes = Math.round(durationMs / 60000);
-		return `${minutes} min`;
+		const totalSeconds = Math.floor(durationMs / 1000);
+		const minutes = Math.floor(totalSeconds / 60);
+		const seconds = totalSeconds % 60;
+		return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')} mins`;
 	}
 
 	// Get topic label

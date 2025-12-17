@@ -70,8 +70,8 @@ export const GET: RequestHandler = async ({ locals, url }) => {
 		// Format the response
 		const sessions = sessionsWithCorrections.map((session) => ({
 			id: session.id,
-			startedAt: session.startedAt instanceof Date ? session.startedAt.getTime() : session.startedAt,
-			endedAt: session.endedAt instanceof Date ? session.endedAt.getTime() : session.endedAt,
+			startedAt: session.startedAt instanceof Date ? session.startedAt.getTime() : (typeof session.startedAt === 'number' ? session.startedAt * 1000 : session.startedAt),
+			endedAt: session.endedAt instanceof Date ? session.endedAt.getTime() : (typeof session.endedAt === 'number' ? session.endedAt * 1000 : session.endedAt),
 			topic: session.topic,
 			difficulty: session.difficulty,
 			mode: session.mode,
