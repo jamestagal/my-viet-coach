@@ -1,7 +1,8 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
 /**
- * Unit tests for usage_periods and usage_sessions database models
+ * Unit tests for usage_periods, usage_sessions, session_messages, and session_corrections
+ * database models.
  *
  * These tests verify the schema definitions and type exports are correct.
  * Integration tests against real D1 would require wrangler local emulation.
@@ -73,12 +74,13 @@ describe('Usage Database Models', () => {
 	});
 
 	describe('usageSessions table schema', () => {
-		it('has correct column definitions', async () => {
+		it('has correct column definitions including extended health tracking columns', async () => {
 			const { usageSessions } = await import('./schema');
 
 			expect(usageSessions).toBeDefined();
 
 			const columns = Object.keys(usageSessions);
+			// Original columns
 			expect(columns).toContain('id');
 			expect(columns).toContain('userId');
 			expect(columns).toContain('startedAt');
@@ -87,6 +89,19 @@ describe('Usage Database Models', () => {
 			expect(columns).toContain('topic');
 			expect(columns).toContain('difficulty');
 			expect(columns).toContain('endReason');
+
+			// Extended provider tracking columns
+			expect(columns).toContain('provider');
+			expect(columns).toContain('initialProvider');
+			expect(columns).toContain('providerSwitchedAt');
+
+			// Extended disconnect tracking columns
+			expect(columns).toContain('disconnectCode');
+			expect(columns).toContain('disconnectReason');
+
+			// Extended session details columns
+			expect(columns).toContain('mode');
+			expect(columns).toContain('messageCount');
 		});
 
 		it('exports UsageSession and NewUsageSession types', async () => {
@@ -101,9 +116,34 @@ describe('Usage Database Models', () => {
 			const testSession: Partial<UsageSession> = {
 				id: 'session-123',
 				userId: 'user-456',
-				minutesUsed: 5
+				minutesUsed: 5,
+				provider: 'gemini',
+				mode: 'coach',
+				messageCount: 10
 			};
 			expect(testSession.minutesUsed).toBe(5);
+			expect(testSession.provider).toBe('gemini');
+			expect(testSession.mode).toBe('coach');
+		});
+
+		it('enforces provider enum values', async () => {
+			const { usageSessions } = await import('./schema');
+
+			const providerColumn = usageSessions.provider;
+			expect(providerColumn).toBeDefined();
+
+			// Valid values: 'gemini', 'openai'
+			expect(providerColumn.enumValues).toEqual(['gemini', 'openai']);
+		});
+
+		it('enforces mode enum values', async () => {
+			const { usageSessions } = await import('./schema');
+
+			const modeColumn = usageSessions.mode;
+			expect(modeColumn).toBeDefined();
+
+			// Valid values: 'free', 'coach'
+			expect(modeColumn.enumValues).toEqual(['free', 'coach']);
 		});
 
 		it('enforces difficulty enum values', async () => {
@@ -116,19 +156,130 @@ describe('Usage Database Models', () => {
 			expect(difficultyColumn.enumValues).toEqual(['beginner', 'intermediate', 'advanced']);
 		});
 
-		it('enforces endReason enum values', async () => {
+		it('enforces endReason enum values including disconnect and provider_switch', async () => {
 			const { usageSessions } = await import('./schema');
 
 			const endReasonColumn = usageSessions.endReason;
 			expect(endReasonColumn).toBeDefined();
 
-			// Valid values: 'user_ended', 'limit_reached', 'timeout', 'error', 'stale'
+			// Valid values include new disconnect and provider_switch reasons
 			expect(endReasonColumn.enumValues).toEqual([
 				'user_ended',
 				'limit_reached',
 				'timeout',
 				'error',
-				'stale'
+				'stale',
+				'disconnect',
+				'provider_switch'
+			]);
+		});
+	});
+
+	describe('sessionMessages table schema', () => {
+		it('has correct column definitions', async () => {
+			const { sessionMessages } = await import('./schema');
+
+			expect(sessionMessages).toBeDefined();
+
+			const columns = Object.keys(sessionMessages);
+			expect(columns).toContain('id');
+			expect(columns).toContain('sessionId');
+			expect(columns).toContain('userId');
+			expect(columns).toContain('role');
+			expect(columns).toContain('text');
+			expect(columns).toContain('timestamp');
+			expect(columns).toContain('sequenceNumber');
+		});
+
+		it('exports SessionMessage and NewSessionMessage types', async () => {
+			const schema = await import('./schema');
+
+			expect(schema.sessionMessages).toBeDefined();
+
+			// Type verification - TypeScript compilation validates these
+			type SessionMessage = typeof schema.sessionMessages.$inferSelect;
+			type NewSessionMessage = typeof schema.sessionMessages.$inferInsert;
+
+			const testMessage: Partial<SessionMessage> = {
+				id: 'msg-123',
+				sessionId: 'session-456',
+				userId: 'user-789',
+				role: 'user',
+				text: 'Xin chao',
+				sequenceNumber: 1
+			};
+			expect(testMessage.role).toBe('user');
+			expect(testMessage.sequenceNumber).toBe(1);
+		});
+
+		it('enforces role enum values', async () => {
+			const { sessionMessages } = await import('./schema');
+
+			const roleColumn = sessionMessages.role;
+			expect(roleColumn).toBeDefined();
+
+			// Valid values: 'user', 'coach'
+			expect(roleColumn.enumValues).toEqual(['user', 'coach']);
+		});
+	});
+
+	describe('sessionCorrections table schema', () => {
+		it('has correct column definitions', async () => {
+			const { sessionCorrections } = await import('./schema');
+
+			expect(sessionCorrections).toBeDefined();
+
+			const columns = Object.keys(sessionCorrections);
+			expect(columns).toContain('id');
+			expect(columns).toContain('sessionId');
+			expect(columns).toContain('userId');
+			expect(columns).toContain('original');
+			expect(columns).toContain('correction');
+			expect(columns).toContain('explanation');
+			expect(columns).toContain('category');
+			expect(columns).toContain('reviewed');
+			expect(columns).toContain('reviewedAt');
+			expect(columns).toContain('confidenceLevel');
+			expect(columns).toContain('createdAt');
+		});
+
+		it('exports SessionCorrection and NewSessionCorrection types', async () => {
+			const schema = await import('./schema');
+
+			expect(schema.sessionCorrections).toBeDefined();
+
+			// Type verification - TypeScript compilation validates these
+			type SessionCorrection = typeof schema.sessionCorrections.$inferSelect;
+			type NewSessionCorrection = typeof schema.sessionCorrections.$inferInsert;
+
+			const testCorrection: Partial<SessionCorrection> = {
+				id: 'corr-123',
+				sessionId: 'session-456',
+				userId: 'user-789',
+				original: 'Toi muon an pho',
+				correction: 'Em muon an pho',
+				explanation: 'Use em when speaking to elders',
+				category: 'tone',
+				reviewed: false,
+				confidenceLevel: 0
+			};
+			expect(testCorrection.category).toBe('tone');
+			expect(testCorrection.reviewed).toBe(false);
+		});
+
+		it('enforces category enum values', async () => {
+			const { sessionCorrections } = await import('./schema');
+
+			const categoryColumn = sessionCorrections.category;
+			expect(categoryColumn).toBeDefined();
+
+			// Valid values: 'grammar', 'tone', 'vocabulary', 'word_order', 'pronunciation'
+			expect(categoryColumn.enumValues).toEqual([
+				'grammar',
+				'tone',
+				'vocabulary',
+				'word_order',
+				'pronunciation'
 			]);
 		});
 	});

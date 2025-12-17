@@ -6,6 +6,10 @@
  * - POST /api/session/start - Start a new voice session
  * - POST /api/session/heartbeat - Update session usage
  * - POST /api/session/end - End a voice session
+ *
+ * Extended to support session health tracking and learning history:
+ * - Session start accepts mode and provider parameters
+ * - Session end accepts disconnect info, messages, and corrections arrays
  */
 
 import type { Env } from '../trpc/context';
@@ -18,14 +22,54 @@ import type { UsageStatus, SessionResult } from '../durable-objects/UserUsageObj
 interface SessionStartRequest {
   topic?: string;
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  /** Practice mode: 'free' for free conversation, 'coach' for correction mode */
+  mode?: 'free' | 'coach';
+  /** Voice AI provider: 'gemini' or 'openai' */
+  provider?: 'gemini' | 'openai';
 }
 
 interface SessionHeartbeatRequest {
   sessionId: string;
 }
 
+/**
+ * Message object for session transcript.
+ */
+interface SessionMessage {
+  role: 'user' | 'coach';
+  text: string;
+  timestamp: number;
+}
+
+/**
+ * Correction object from coach mode sessions.
+ */
+interface SessionCorrection {
+  original: string;
+  correction: string;
+  explanation?: string;
+  category?: 'grammar' | 'tone' | 'vocabulary' | 'word_order' | 'pronunciation';
+}
+
+/**
+ * Extended session end request with health tracking and learning history data.
+ */
 interface SessionEndRequest {
   sessionId: string;
+  /** WebSocket close code (1000, 1006, 1011, etc.) */
+  disconnectCode?: number;
+  /** Human-readable disconnect explanation */
+  disconnectReason?: string;
+  /** Total number of messages in the conversation */
+  messageCount?: number;
+  /** Final provider used ('gemini' or 'openai') */
+  provider?: 'gemini' | 'openai';
+  /** Whether provider was switched during the session */
+  providerSwitched?: boolean;
+  /** Conversation transcript messages */
+  messages?: SessionMessage[];
+  /** Learning corrections extracted from the session */
+  corrections?: SessionCorrection[];
 }
 
 interface ApiResponse<T = unknown> {
@@ -135,6 +179,8 @@ export async function handleSessionStatus(
  * Request body (optional):
  * - topic: string (default: 'general')
  * - difficulty: 'beginner' | 'intermediate' | 'advanced' (default: 'intermediate')
+ * - mode: 'free' | 'coach' (default: 'coach')
+ * - provider: 'gemini' | 'openai' (default: 'gemini')
  *
  * Returns sessionId on success, or error with 403 status if no credits.
  */
@@ -165,6 +211,8 @@ export async function handleSessionStart(
 
   const topic = body.topic ?? 'general';
   const difficulty = body.difficulty ?? 'intermediate';
+  const mode = body.mode ?? 'coach';
+  const provider = body.provider ?? 'gemini';
 
   // Validate difficulty enum
   const validDifficulties = ['beginner', 'intermediate', 'advanced'];
@@ -173,6 +221,30 @@ export async function handleSessionStart(
       JSON.stringify({
         success: false,
         error: 'Invalid difficulty. Must be beginner, intermediate, or advanced.'
+      } satisfies ApiResponse),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Validate mode enum
+  const validModes = ['free', 'coach'];
+  if (!validModes.includes(mode)) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Invalid mode. Must be free or coach.'
+      } satisfies ApiResponse),
+      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // Validate provider enum
+  const validProviders = ['gemini', 'openai'];
+  if (!validProviders.includes(provider)) {
+    return new Response(
+      JSON.stringify({
+        success: false,
+        error: 'Invalid provider. Must be gemini or openai.'
       } satisfies ApiResponse),
       { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -202,13 +274,13 @@ export async function handleSessionStart(
 
     const sessionId = result.sessionId!;
 
-    // Log session start to D1
+    // Log session start to D1 with extended fields
     try {
       await env.DB.prepare(
-        `INSERT INTO usage_sessions (id, user_id, started_at, topic, difficulty)
-         VALUES (?, ?, ?, ?, ?)`
+        `INSERT INTO usage_sessions (id, user_id, started_at, topic, difficulty, mode, provider, initial_provider)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
       )
-        .bind(sessionId, userId, Date.now(), topic, difficulty)
+        .bind(sessionId, userId, Date.now(), topic, difficulty, mode, provider, provider)
         .run();
     } catch (dbError) {
       console.error('[Session Start] Failed to log to D1:', dbError);
@@ -324,6 +396,13 @@ export async function handleSessionHeartbeat(
  *
  * Request body:
  * - sessionId: string (required)
+ * - disconnectCode: number (optional) - WebSocket close code
+ * - disconnectReason: string (optional) - Human-readable disconnect explanation
+ * - messageCount: number (optional) - Total messages in conversation
+ * - provider: 'gemini' | 'openai' (optional) - Final provider used
+ * - providerSwitched: boolean (optional) - Whether provider was switched
+ * - messages: SessionMessage[] (optional) - Conversation transcript
+ * - corrections: SessionCorrection[] (optional) - Learning corrections
  *
  * Returns sessionMinutes, totalMinutesUsed, and minutesRemaining.
  */
@@ -366,18 +445,101 @@ export async function handleSessionEnd(
 
     const result: SessionResult = await stub.endSession(body.sessionId);
 
-    // Update session record in D1
+    // Determine end reason based on disconnect code
+    let endReason = 'user_ended';
+    if (body.disconnectCode) {
+      endReason = 'disconnect';
+    }
+    if (body.providerSwitched) {
+      endReason = 'provider_switch';
+    }
+
+    // Update session record in D1 with extended fields
     try {
       await env.DB.prepare(
         `UPDATE usage_sessions
-         SET ended_at = ?, minutes_used = ?, end_reason = ?
+         SET ended_at = ?,
+             minutes_used = ?,
+             end_reason = ?,
+             disconnect_code = ?,
+             disconnect_reason = ?,
+             message_count = ?,
+             provider = ?,
+             provider_switched_at = CASE WHEN ? = 1 THEN ? ELSE provider_switched_at END
          WHERE id = ?`
       )
-        .bind(Date.now(), result.minutesUsed ?? 0, 'user_ended', body.sessionId)
+        .bind(
+          Date.now(),
+          result.minutesUsed ?? 0,
+          endReason,
+          body.disconnectCode ?? null,
+          body.disconnectReason ?? null,
+          body.messageCount ?? 0,
+          body.provider ?? 'gemini',
+          body.providerSwitched ? 1 : 0,
+          body.providerSwitched ? Date.now() : null,
+          body.sessionId
+        )
         .run();
     } catch (dbError) {
       console.error('[Session End] Failed to update D1:', dbError);
       // Don't fail the request - session is ended, D1 update is secondary
+    }
+
+    // Batch insert messages if provided
+    if (body.messages && body.messages.length > 0) {
+      try {
+        const messageStmt = env.DB.prepare(
+          `INSERT INTO session_messages (id, session_id, user_id, role, text, timestamp, sequence_number)
+           VALUES (?, ?, ?, ?, ?, ?, ?)`
+        );
+
+        const messageInserts = body.messages.map((msg, idx) =>
+          messageStmt.bind(
+            crypto.randomUUID(),
+            body.sessionId,
+            userId,
+            msg.role,
+            msg.text,
+            msg.timestamp,
+            idx
+          )
+        );
+
+        await env.DB.batch(messageInserts);
+      } catch (dbError) {
+        console.error('[Session End] Failed to insert messages:', dbError);
+        // Don't fail the request - messages are secondary data
+      }
+    }
+
+    // Batch insert corrections if provided
+    if (body.corrections && body.corrections.length > 0) {
+      try {
+        const correctionStmt = env.DB.prepare(
+          `INSERT INTO session_corrections (id, session_id, user_id, original, correction, explanation, category, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        );
+
+        const now = Date.now();
+        const correctionInserts = body.corrections.map((corr) =>
+          correctionStmt.bind(
+            crypto.randomUUID(),
+            body.sessionId,
+            userId,
+            corr.original,
+            corr.correction,
+            corr.explanation ?? null,
+            corr.category ?? null,
+            now
+          )
+        );
+
+        await env.DB.batch(correctionInserts);
+      } catch (dbError) {
+        console.error('[Session End] Failed to insert corrections:', dbError);
+        // Don't fail the request - corrections are secondary data
+      }
     }
 
     // Get updated status

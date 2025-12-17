@@ -21,9 +21,17 @@ export interface UsageStatus {
   percentUsed: number;
 }
 
+/**
+ * Options for starting a new voice session.
+ * Extended to include mode and provider for session health tracking.
+ */
 export interface SessionStartOptions {
   topic?: string;
   difficulty?: 'beginner' | 'intermediate' | 'advanced';
+  /** Practice mode: 'free' for free conversation, 'coach' for correction mode */
+  mode?: 'free' | 'coach';
+  /** Voice AI provider: 'gemini' or 'openai' */
+  provider?: 'gemini' | 'openai';
 }
 
 export interface SessionStartResult {
@@ -41,6 +49,49 @@ export interface SessionEndResult {
   sessionMinutes: number;
   totalMinutesUsed: number;
   minutesRemaining: number;
+}
+
+/**
+ * Message object for session transcript.
+ * Used when storing conversation history.
+ */
+export interface SessionMessage {
+  role: 'user' | 'coach';
+  text: string;
+  timestamp: number;
+}
+
+/**
+ * Correction object from coach mode sessions.
+ * Used when storing learning corrections.
+ */
+export interface SessionCorrection {
+  original: string;
+  correction: string;
+  explanation?: string;
+  category?: 'grammar' | 'tone' | 'vocabulary' | 'word_order' | 'pronunciation';
+}
+
+/**
+ * Options for ending a voice session.
+ * Extended to include disconnect info, messages, and corrections.
+ */
+export interface SessionEndOptions {
+  sessionId: string;
+  /** WebSocket close code (1000, 1006, 1011, etc.) */
+  disconnectCode?: number;
+  /** Human-readable disconnect explanation */
+  disconnectReason?: string;
+  /** Total number of messages in the conversation */
+  messageCount?: number;
+  /** Final provider used ('gemini' or 'openai') */
+  provider?: 'gemini' | 'openai';
+  /** Whether provider was switched during the session */
+  providerSwitched?: boolean;
+  /** Conversation transcript messages */
+  messages?: SessionMessage[];
+  /** Learning corrections extracted from the session */
+  corrections?: SessionCorrection[];
 }
 
 interface ApiResponse<T = unknown> {
@@ -108,7 +159,7 @@ export async function getUsageStatus(): Promise<UsageStatus> {
 /**
  * Start a new voice practice session.
  *
- * @param options - Optional topic and difficulty settings
+ * @param options - Session options including topic, difficulty, mode, and provider
  * @returns Session result with sessionId
  * @throws Error if no credits available or session already active
  */
@@ -184,13 +235,19 @@ export async function sendHeartbeat(sessionId: string): Promise<HeartbeatResult>
 
 /**
  * End an active voice practice session.
+ * Extended to accept disconnect info, messages array, and corrections array.
  *
- * @param sessionId - The session ID to end
+ * @param options - Session end options or just sessionId string for backward compatibility
  * @returns Session end result with final usage stats
  * @throws Error if session is invalid
  */
-export async function endSession(sessionId: string): Promise<SessionEndResult> {
+export async function endSession(
+  options: SessionEndOptions | string
+): Promise<SessionEndResult> {
   const baseUrl = getApiBaseUrl();
+
+  // Support both old string signature and new options object
+  const body = typeof options === 'string' ? { sessionId: options } : options;
 
   const response = await fetch(`${baseUrl}/api/session/end`, {
     method: 'POST',
@@ -198,7 +255,7 @@ export async function endSession(sessionId: string): Promise<SessionEndResult> {
     headers: {
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify({ sessionId })
+    body: JSON.stringify(body)
   });
 
   if (!response.ok) {

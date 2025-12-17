@@ -179,5 +179,130 @@ export const send = {
 				</html>
 			`
 		});
+	},
+
+	purchaseConfirmation: async ({
+		toEmail,
+		customerName,
+		productName,
+		amount,
+		currency
+	}: {
+		toEmail: string;
+		customerName: string | null;
+		productName: string;
+		amount: number;
+		currency: string;
+	}) => {
+		const formattedAmount = new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency: currency.toUpperCase()
+		}).format(amount / 100); // Polar amounts are in cents
+
+		const displayName = customerName || 'there';
+		const formattedDate = new Date().toLocaleDateString('en-US', {
+			year: 'numeric',
+			month: 'long',
+			day: 'numeric'
+		});
+
+		await sendEmail({
+			to: toEmail,
+			subject: `Payment received - ${PUBLIC_PROJECT_NAME}`,
+			html: `
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				</head>
+				<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+					<div style="background: white; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+						<div style="text-align: center; margin-bottom: 24px;">
+							<img src="https://speakphoreal.com/speak-pho-real.svg" alt="${PUBLIC_PROJECT_NAME}" style="height: 40px; width: auto;" />
+						</div>
+						<h2 style="margin: 0 0 16px; color: #111827; font-size: 24px;">Payment Received</h2>
+						<p style="margin: 0 0 24px; color: #6b7280; font-size: 14px;">
+							Hi ${displayName}, thank you for your payment!
+						</p>
+						<div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin-bottom: 24px;">
+							<table style="width: 100%; border-collapse: collapse;">
+								<tr>
+									<td style="color: #6b7280; font-size: 14px; padding: 8px 0;">Product</td>
+									<td style="color: #111827; font-size: 14px; font-weight: 500; text-align: right; padding: 8px 0;">${productName}</td>
+								</tr>
+								<tr>
+									<td style="color: #6b7280; font-size: 14px; padding: 8px 0;">Amount</td>
+									<td style="color: #111827; font-size: 14px; font-weight: 500; text-align: right; padding: 8px 0;">${formattedAmount}</td>
+								</tr>
+								<tr>
+									<td style="color: #6b7280; font-size: 14px; padding: 8px 0;">Date</td>
+									<td style="color: #111827; font-size: 14px; font-weight: 500; text-align: right; padding: 8px 0;">${formattedDate}</td>
+								</tr>
+							</table>
+						</div>
+						<p style="margin: 0; color: #9ca3af; font-size: 12px;">
+							If you have any questions about this payment, please contact our support team.
+						</p>
+					</div>
+				</body>
+				</html>
+			`
+		});
+	},
+
+	welcome: async ({
+		toEmail,
+		userName
+	}: {
+		toEmail: string;
+		userName?: string | null;
+	}) => {
+		const displayName = userName || 'there';
+
+		await sendEmail({
+			to: toEmail,
+			subject: `Welcome to ${PUBLIC_PROJECT_NAME}!`,
+			html: `
+				<!DOCTYPE html>
+				<html>
+				<head>
+					<meta charset="utf-8">
+					<meta name="viewport" content="width=device-width, initial-scale=1.0">
+				</head>
+				<body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 500px; margin: 0 auto; padding: 20px; background-color: #f9fafb;">
+					<div style="background: white; padding: 32px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);">
+						<div style="text-align: center; margin-bottom: 24px;">
+							<img src="https://speakphoreal.com/speak-pho-real.svg" alt="${PUBLIC_PROJECT_NAME}" style="height: 40px; width: auto;" />
+						</div>
+						<h2 style="margin: 0 0 16px; color: #111827; font-size: 24px;">Welcome to ${PUBLIC_PROJECT_NAME}!</h2>
+						<p style="margin: 0 0 24px; color: #6b7280; font-size: 14px;">
+							Hi ${displayName}, we're excited to have you join us on your Vietnamese learning journey!
+						</p>
+						<h3 style="margin: 0 0 12px; color: #111827; font-size: 16px;">Getting Started</h3>
+						<ul style="margin: 0 0 24px; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+							<li><strong>Start a practice session</strong> - Have real conversations with our AI coach</li>
+							<li><strong>Free plan</strong> - Includes 10 minutes of practice per month</li>
+							<li><strong>Upgrade anytime</strong> - Get more practice time with our paid plans</li>
+						</ul>
+						<h3 style="margin: 0 0 12px; color: #111827; font-size: 16px;">Tips for Success</h3>
+						<ul style="margin: 0 0 24px; padding-left: 20px; color: #6b7280; font-size: 14px; line-height: 1.6;">
+							<li>Speak naturally - don't worry about making mistakes</li>
+							<li>Our coach provides real-time corrections and explanations</li>
+							<li>Review your conversation history to track your progress</li>
+						</ul>
+						<div style="text-align: center; margin-bottom: 24px;">
+							<a href="https://speakphoreal.com/practice" style="display: inline-block; background: #111827; color: #ffffff; padding: 14px 28px; border-radius: 6px; text-decoration: none; font-weight: 500;">
+								Start Practicing
+							</a>
+						</div>
+						<p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+							Happy learning!<br/>The ${PUBLIC_PROJECT_NAME} Team
+						</p>
+					</div>
+				</body>
+				</html>
+			`
+		});
 	}
 };

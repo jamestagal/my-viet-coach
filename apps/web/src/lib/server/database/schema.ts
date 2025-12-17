@@ -99,8 +99,20 @@ const PLAN_TYPES = ['free', 'basic', 'pro'] as const;
 // Difficulty enum values
 const DIFFICULTY_LEVELS = ['beginner', 'intermediate', 'advanced'] as const;
 
-// End reason enum values
-const END_REASONS = ['user_ended', 'limit_reached', 'timeout', 'error', 'stale'] as const;
+// End reason enum values (extended with disconnect and provider_switch)
+const END_REASONS = ['user_ended', 'limit_reached', 'timeout', 'error', 'stale', 'disconnect', 'provider_switch'] as const;
+
+// Provider enum values
+const PROVIDERS = ['gemini', 'openai'] as const;
+
+// Mode enum values
+const MODES = ['free', 'coach'] as const;
+
+// Message role enum values
+const MESSAGE_ROLES = ['user', 'coach'] as const;
+
+// Correction category enum values
+const CORRECTION_CATEGORIES = ['grammar', 'tone', 'vocabulary', 'word_order', 'pronunciation'] as const;
 
 /**
  * Usage periods table - monthly usage records synced from Durable Objects
@@ -142,8 +154,8 @@ export const usagePeriods = sqliteTable(
 );
 
 /**
- * Usage sessions table - individual voice session logs
- * Detailed audit trail for support and analytics
+ * Usage sessions table - individual voice session logs with health tracking
+ * Detailed audit trail for support, analytics, and admin session monitoring
  */
 export const usageSessions = sqliteTable(
 	'usage_sessions',
@@ -165,13 +177,98 @@ export const usageSessions = sqliteTable(
 		difficulty: text('difficulty', { enum: DIFFICULTY_LEVELS }),
 
 		// Metadata
-		endReason: text('end_reason', { enum: END_REASONS })
+		endReason: text('end_reason', { enum: END_REASONS }),
+
+		// Provider tracking (NEW)
+		provider: text('provider', { enum: PROVIDERS }).default('gemini'),
+		initialProvider: text('initial_provider', { enum: PROVIDERS }),
+		providerSwitchedAt: integer('provider_switched_at', { mode: 'timestamp' }),
+
+		// Disconnect tracking (NEW)
+		disconnectCode: integer('disconnect_code'),
+		disconnectReason: text('disconnect_reason'),
+
+		// Session details (NEW)
+		mode: text('mode', { enum: MODES }),
+		messageCount: integer('message_count').default(0)
 	},
 	(table) => [
 		// Index on user_id for query performance
 		index('usage_sessions_user_id_idx').on(table.userId),
 		// Index on started_at for time-based queries
-		index('usage_sessions_started_at_idx').on(table.startedAt)
+		index('usage_sessions_started_at_idx').on(table.startedAt),
+		// Index on provider for admin queries
+		index('usage_sessions_provider_idx').on(table.provider),
+		// Index on disconnect_code for admin queries
+		index('usage_sessions_disconnect_code_idx').on(table.disconnectCode),
+		// Index on mode for admin queries
+		index('usage_sessions_mode_idx').on(table.mode)
+	]
+);
+
+/**
+ * Session messages table - conversation history for user review
+ * Stores individual messages from voice sessions for learning reference
+ */
+export const sessionMessages = sqliteTable(
+	'session_messages',
+	{
+		id: text('id').primaryKey(),
+		sessionId: text('session_id').notNull(),
+		userId: text('user_id').notNull(),
+
+		// Message content
+		role: text('role', { enum: MESSAGE_ROLES }).notNull(),
+		text: text('text').notNull(),
+
+		// Timing
+		timestamp: integer('timestamp', { mode: 'timestamp' }).notNull(),
+		sequenceNumber: integer('sequence_number').notNull()
+	},
+	(table) => [
+		// Index on session_id for fetching conversation history
+		index('session_messages_session_idx').on(table.sessionId),
+		// Index on user_id for user-specific queries
+		index('session_messages_user_idx').on(table.userId),
+		// Index on timestamp for time-based queries
+		index('session_messages_timestamp_idx').on(table.timestamp)
+	]
+);
+
+/**
+ * Session corrections table - learning items from coach mode
+ * Stores corrections extracted from coach mode sessions for review
+ */
+export const sessionCorrections = sqliteTable(
+	'session_corrections',
+	{
+		id: text('id').primaryKey(),
+		sessionId: text('session_id').notNull(),
+		userId: text('user_id').notNull(),
+
+		// Correction content
+		original: text('original').notNull(),
+		correction: text('correction').notNull(),
+		explanation: text('explanation'),
+		category: text('category', { enum: CORRECTION_CATEGORIES }),
+
+		// Learning tracking
+		reviewed: integer('reviewed', { mode: 'boolean' }).default(false),
+		reviewedAt: integer('reviewed_at', { mode: 'timestamp' }),
+		confidenceLevel: integer('confidence_level').default(0),
+
+		// Timing
+		createdAt: integer('created_at', { mode: 'timestamp' }).notNull()
+	},
+	(table) => [
+		// Index on session_id for fetching session corrections
+		index('session_corrections_session_idx').on(table.sessionId),
+		// Index on user_id for user-specific queries
+		index('session_corrections_user_idx').on(table.userId),
+		// Index on category for filtering corrections by type
+		index('session_corrections_category_idx').on(table.category),
+		// Index on reviewed for filtering unreviewed corrections
+		index('session_corrections_reviewed_idx').on(table.reviewed)
 	]
 );
 
@@ -182,3 +279,11 @@ export type NewUsagePeriod = typeof usagePeriods.$inferInsert;
 // Type exports for usage_sessions
 export type UsageSession = typeof usageSessions.$inferSelect;
 export type NewUsageSession = typeof usageSessions.$inferInsert;
+
+// Type exports for session_messages
+export type SessionMessage = typeof sessionMessages.$inferSelect;
+export type NewSessionMessage = typeof sessionMessages.$inferInsert;
+
+// Type exports for session_corrections
+export type SessionCorrection = typeof sessionCorrections.$inferSelect;
+export type NewSessionCorrection = typeof sessionCorrections.$inferInsert;

@@ -30,17 +30,17 @@ The following features are already implemented:
 
 4. [x] **Polar Webhook DO Integration** - Connect Polar.sh subscription webhooks to Durable Objects for instant plan upgrades/downgrades without database round-trips. `M`
 
-5. [ ] **Extended Session Tracking** - Add provider tracking, disconnect codes, session modes, and message counts to usage_sessions table for admin visibility. `S`
+5. [x] **Extended Session Tracking** - Add provider tracking, disconnect codes, session modes, and message counts to usage_sessions table for admin visibility. `S`
 
-6. [ ] **Session Messages Persistence** - Store conversation messages in D1 database (replacing localStorage) so users can review past conversations across devices. `M`
+6. [x] **Session Messages Persistence** - Store conversation messages in D1 database (replacing localStorage) so users can review past conversations across devices. `M`
 
-7. [ ] **Session Corrections Persistence** - Store corrections in D1 database with category classification (grammar, tone, vocabulary, word_order, pronunciation) for learning review. `M`
+7. [x] **Session Corrections Persistence** - Store corrections in D1 database with category classification (grammar, tone, vocabulary, word_order, pronunciation) for learning review. `M`
 
-8. [ ] **Learning History Page** - Create user-facing page to browse past sessions, view conversation transcripts, and review corrections with explanations. `M`
+8. [x] **Learning History Page** - Create user-facing page to browse past sessions, view conversation transcripts, and review corrections with explanations. `M`
 
-9. [ ] **Corrections Review System** - Add ability for users to mark corrections as reviewed, set confidence levels, and track learning progress over time. `S`
+9. [x] **Corrections Review System** - Add ability for users to mark corrections as reviewed, set confidence levels, and track learning progress over time. `S`
 
-10. [ ] **Admin Session Health Dashboard** - Build admin dashboard showing session statistics, provider breakdown, disconnect rates, and provider switch metrics. `L`
+10. [x] **Admin Session Health Dashboard** - Build admin dashboard showing session statistics, provider breakdown, disconnect rates, and provider switch metrics. `L`
 
 11. [ ] **Subscription Pricing Page** - Create public pricing page with plan comparison (Free: 10 min, Basic $15: 100 min, Pro $25: 500 min) and checkout flow. `M`
 
