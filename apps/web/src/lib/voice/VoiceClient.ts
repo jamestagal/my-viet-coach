@@ -334,9 +334,12 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
     if (message.serverContent?.inputTranscription?.text) {
       let text = message.serverContent.inputTranscription.text;
       // Filter out <noise> tags that Gemini sometimes adds
-      text = text.replace(/<noise>/gi, '').replace(/\s+/g, ' ').trim();
-      if (!text) return; // Skip if only noise
-      this.userTranscriptBuffer += (this.userTranscriptBuffer ? ' ' : '') + text;
+      // Note: Don't add spaces between chunks or normalize whitespace aggressively
+      // as this breaks Vietnamese text with diacritics that may span multiple chunks
+      text = text.replace(/<noise>/gi, '');
+      if (!text.trim()) return; // Skip if only noise/whitespace
+      // Concatenate directly like output transcription - Gemini includes proper spacing
+      this.userTranscriptBuffer += text;
 
       // Stream for real-time visual feedback
       this.events.onUserTranscriptStreaming?.(this.userTranscriptBuffer);
