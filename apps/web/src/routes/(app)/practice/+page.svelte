@@ -388,6 +388,9 @@
 		client?.disconnect();
 		client = null;
 
+		// Store session ID for corrections saving (before it gets cleared)
+		const sessionIdForCorrections = usageSessionId;
+
 		// End usage session with extended data
 		if (usageSessionId) {
 			try {
@@ -407,7 +410,7 @@
 						text: msg.text,
 						timestamp: msg.timestamp
 					})),
-					// Corrections will be added after extraction (for coach mode)
+					// Corrections will be saved separately after extraction
 					corrections: []
 				};
 
@@ -427,14 +430,14 @@
 		if (selectedMode === 'coach' && sessionTranscript.length > 0) {
 			showSummaryModal = true;
 			connectionState = 'disconnected';
-			await extractCorrections();
+			await extractCorrections(sessionIdForCorrections);
 		} else {
 			resetSession();
 		}
 	}
 
-	// Extract corrections from transcript using AI
-	async function extractCorrections() {
+	// Extract corrections from transcript using AI and save to database
+	async function extractCorrections(sessionIdToSave: string | null) {
 		if (sessionTranscript.length === 0) return;
 
 		isExtractingCorrections = true;
@@ -459,6 +462,26 @@
 
 			const data = await response.json();
 			corrections = data.corrections || [];
+
+			// Save corrections to database if we have a session ID and corrections
+			if (sessionIdToSave && corrections.length > 0) {
+				try {
+					const saveResponse = await fetch('/api/session/corrections', {
+						method: 'POST',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({
+							sessionId: sessionIdToSave,
+							corrections: corrections
+						})
+					});
+
+					if (!saveResponse.ok) {
+						console.error('[Practice] Failed to save corrections to database');
+					}
+				} catch (saveErr) {
+					console.error('[Practice] Error saving corrections:', saveErr);
+				}
+			}
 		} catch (err) {
 			extractionError = err instanceof Error ? err.message : 'Failed to analyze session';
 		} finally {

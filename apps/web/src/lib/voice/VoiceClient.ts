@@ -15,6 +15,39 @@
 
 export type VoiceProvider = 'gemini' | 'openai';
 
+// ============================================
+// VIETNAMESE TEXT NORMALIZATION
+// ============================================
+
+/**
+ * Normalize Vietnamese text by removing spurious spaces inserted by speech-to-text.
+ * Gemini often inserts spaces after Vietnamese diacritical characters.
+ *
+ * Examples:
+ * - "Chà o" -> "Chào"
+ * - "bạ n" -> "bạn"
+ * - "cũ ng" -> "cũng"
+ */
+function normalizeVietnameseText(text: string): string {
+  // Vietnamese diacritical vowels (both cases)
+  const vietDiacritics = 'àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ' +
+                         'ÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴĐ';
+
+  // Remove space after a Vietnamese diacritical character followed by a lowercase letter
+  // This handles cases like "Chà o" -> "Chào", "bạ n" -> "bạn"
+  const pattern = new RegExp(`([${vietDiacritics}])\\s+([a-záàảãạăằắẳẵặâầấẩẫậéèẻẽẹêềếểễệíìỉĩịóòỏõọôồốổỗộơờớởỡợúùủũụưừứửữựýỳỷỹỵđ])`, 'g');
+
+  let result = text;
+  // Apply multiple times in case of consecutive issues
+  let prev = '';
+  while (prev !== result) {
+    prev = result;
+    result = result.replace(pattern, '$1$2');
+  }
+
+  return result;
+}
+
 export interface VoiceProviderConfig {
   systemPrompt: string;
   voice?: string;
@@ -341,8 +374,8 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
       // Concatenate directly like output transcription - Gemini includes proper spacing
       this.userTranscriptBuffer += text;
 
-      // Stream for real-time visual feedback
-      this.events.onUserTranscriptStreaming?.(this.userTranscriptBuffer);
+      // Stream for real-time visual feedback (normalize for display)
+      this.events.onUserTranscriptStreaming?.(normalizeVietnameseText(this.userTranscriptBuffer));
 
       // Reset debounce timer - emit after silence
       if (this.userTranscriptTimeout) {
@@ -350,7 +383,8 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
       }
       this.userTranscriptTimeout = setTimeout(() => {
         if (this.userTranscriptBuffer.trim()) {
-          this.events.onUserTranscript(this.userTranscriptBuffer.trim());
+          // Normalize Vietnamese text to fix spacing issues from Gemini STT
+          this.events.onUserTranscript(normalizeVietnameseText(this.userTranscriptBuffer.trim()));
           this.userTranscriptBuffer = '';
           // Clear streaming display
           this.events.onUserTranscriptStreaming?.('');
@@ -366,7 +400,8 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
         this.userTranscriptTimeout = null;
       }
       // User finished speaking, emit the full accumulated transcript
-      this.events.onUserTranscript(this.userTranscriptBuffer.trim());
+      // Normalize Vietnamese text to fix spacing issues from Gemini STT
+      this.events.onUserTranscript(normalizeVietnameseText(this.userTranscriptBuffer.trim()));
       this.userTranscriptBuffer = '';
       this.events.onUserTranscriptStreaming?.('');
     }
@@ -378,7 +413,8 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
         this.userTranscriptTimeout = null;
       }
       // Emit any remaining user transcript
-      this.events.onUserTranscript(this.userTranscriptBuffer.trim());
+      // Normalize Vietnamese text to fix spacing issues from Gemini STT
+      this.events.onUserTranscript(normalizeVietnameseText(this.userTranscriptBuffer.trim()));
       this.userTranscriptBuffer = '';
       this.events.onUserTranscriptStreaming?.('');
     }
@@ -391,7 +427,8 @@ class GeminiVoiceProvider extends BaseVoiceProvider {
       }
       // User interrupted - emit what we have
       if (this.userTranscriptBuffer.trim()) {
-        this.events.onUserTranscript(this.userTranscriptBuffer.trim());
+        // Normalize Vietnamese text to fix spacing issues from Gemini STT
+        this.events.onUserTranscript(normalizeVietnameseText(this.userTranscriptBuffer.trim()));
         this.userTranscriptBuffer = '';
         this.events.onUserTranscriptStreaming?.('');
       }
